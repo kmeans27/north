@@ -35,10 +35,18 @@
   --tap-min: 44px;
   --measure: 620px;
   --topbar-h: 56px;   /* 05-design.md §3 */
+  --cell: 36px;       /* 05-design.md §4: the visible cell box */
+  --dot: 4px;         /* AutoCell source dot */
+  --spark-w: 100px;   /* 05-design.md §4: ScoreHeader sparkline */
+  --spark-h: 24px;
+  --sheet-w: 200px;   /* 04-ux.md §3: the AutoCell sheet */
+  --sheet-lift: 8px;  /* 05-design.md §6: sheet open/close */
+  --toast-w: 280px;   /* 05-design.md §4 */
 
   /* motion */
   --t-fast: 120ms; --t-base: 180ms; --t-slow: 240ms;
   --t-fade: 400ms;    /* the single load fade of the score header, 05-design.md §6 */
+  --t-toast: 4000ms;  /* 04-ux.md §3: the undo toast lives for four seconds */
   --ease: cubic-bezier(0.2, 0, 0, 1);
 
   color-scheme: light;

@@ -1,95 +1,105 @@
 import { expect, test } from '@playwright/test';
 
-/* M0 acceptance (08-build-plan.md): the deployed page renders the token palette
-   in a 620 px column with hairline rules and no shadows, and the demo seed is
-   deterministic across reloads. Also enforces the DoD: no console errors and no
-   runtime network requests beyond the self-hosted font. */
+/* M0 acceptance (08-build-plan.md §M0), carried onto the real Today screen: a
+   620 px column under a 56 px top bar, ink on paper with no shadows, and a
+   deterministic 120-day demo seed. Also the DoD: no console errors, no runtime
+   network requests beyond the self-hosted font, correct at 320 px and 1440 px. */
 
-test.describe('M0 shell', () => {
-  test('renders the palette in a 620 px column with a 56 px header', async ({ page }) => {
-    const errors: string[] = [];
-    page.on('console', (message) => {
-      if (message.type() === 'error') errors.push(message.text());
-    });
-    page.on('pageerror', (error) => errors.push(String(error)));
+test('renders the page in a 620 px column under a 56 px top bar, with no shadows', async ({
+  page
+}) => {
+  const errors: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error') errors.push(message.text());
+  });
+  page.on('pageerror', (error) => errors.push(String(error)));
 
-    await page.goto('/');
+  await page.goto('/');
 
-    const shell = page.locator('.shell').first();
-    await expect(shell).toBeVisible();
-    const shellBox = await shell.boundingBox();
-    expect(shellBox, 'measure').not.toBeNull();
-    expect(shellBox!.width).toBeLessThanOrEqual(620);
-    expect(shellBox!.width).toBeGreaterThan(0);
+  const shell = page.locator('.topbar .shell');
+  await expect(shell).toBeVisible();
+  const box = await shell.boundingBox();
+  expect(box, 'measure').not.toBeNull();
+  expect(box!.width).toBeLessThanOrEqual(620);
+  expect(box!.width).toBeGreaterThan(0);
 
-    const headerBox = await page.locator('.topbar').boundingBox();
-    expect(headerBox!.height).toBeCloseTo(56, 0);
+  const header = await page.locator('.topbar').boundingBox();
+  expect(header!.height).toBeCloseTo(56, 0);
 
-    // No shadows anywhere: the design is ink on paper (05-design.md §3).
-    const shadows = await page.evaluate(() =>
-      [...document.querySelectorAll('*')]
-        .map((el) => getComputedStyle(el).boxShadow)
-        .filter((shadow) => shadow !== 'none')
-    );
-    expect(shadows).toEqual([]);
+  // No shadows anywhere: the design is ink on paper (05-design.md §3).
+  const shadows = await page.evaluate(() =>
+    [...document.querySelectorAll('*')]
+      .map((element) => getComputedStyle(element).boxShadow)
+      .filter((shadow) => shadow !== 'none')
+  );
+  expect(shadows).toEqual([]);
 
-    // The accent is the only saturated colour (05-design.md §1).
-    const background = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-    expect(background).toBe('rgb(250, 249, 246)');
+  // The paper is warm and the accent is the only saturated colour (§1).
+  const background = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  expect(background).toBe('rgb(250, 249, 246)');
 
-    expect(errors).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+test('makes no external requests and loads the self-hosted font', async ({ page }) => {
+  const external: string[] = [];
+  const fonts: string[] = [];
+  page.on('request', (request) => {
+    const url = new URL(request.url());
+    if (url.hostname !== 'localhost' && url.hostname !== '127.0.0.1') external.push(request.url());
+    if (request.resourceType() === 'font') fonts.push(url.pathname);
   });
 
-  test('makes no external requests and loads the self-hosted font', async ({ page }) => {
-    const external: string[] = [];
-    const fonts: string[] = [];
-    page.on('request', (request) => {
-      const url = new URL(request.url());
-      if (url.hostname !== 'localhost' && url.hostname !== '127.0.0.1') external.push(request.url());
-      if (request.resourceType() === 'font') fonts.push(url.pathname);
-    });
+  await page.goto('/', { waitUntil: 'networkidle' });
 
-    await page.goto('/', { waitUntil: 'networkidle' });
+  expect(external).toEqual([]);
+  expect(fonts).toContain('/fonts/inter-var-latin.woff2');
 
-    expect(external).toEqual([]);
-    expect(fonts).toContain('/fonts/inter-var-latin.woff2');
+  // The font really loaded: Inter is in use, not a system fallback.
+  const family = await page.evaluate(() => getComputedStyle(document.body).fontFamily);
+  expect(family.startsWith('Inter')).toBe(true);
+});
 
-    // The font really loaded: Inter is in use, not a system fallback.
-    const fontFamily = await page.evaluate(() => getComputedStyle(document.body).fontFamily);
-    expect(fontFamily.startsWith('Inter')).toBe(true);
+test('renders 120 demo days deterministically across reloads', async ({ page }) => {
+  await page.goto('/?demo=1');
+
+  await expect(page.getByTestId('demo-days')).toHaveText('120');
+  const first = (await page.getByTestId('demo-fingerprint').textContent())!.trim();
+  expect(first).toMatch(/^[0-9a-f]{8}$/);
+  // Every seeded day carries watch data, so no gap banner (04-ux.md §9).
+  await expect(page.locator('.banner')).toHaveCount(0);
+
+  await page.reload();
+  await expect(page.getByTestId('demo-days')).toHaveText('120');
+  expect((await page.getByTestId('demo-fingerprint').textContent())!.trim()).toBe(first);
+});
+
+test('a fresh install reports no device gap', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('[data-row]').first()).toBeVisible();
+
+  // No device has ever delivered, so nothing has stopped (§9).
+  await expect(page.locator('.banner')).toHaveCount(0);
+});
+
+test('holds a 620 px column at 1440 px and never overflows at 320 px', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/?demo=1');
+
+  const column = await page.locator('main .shell').boundingBox();
+  expect(column!.width).toBe(620);
+  expect(Math.round(column!.x)).toBe(410); // centred in 1440
+
+  const overflow = async (): Promise<boolean> =>
+    page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
+
+  await page.setViewportSize({ width: 320, height: 640 });
+  await page.goto('/?demo=1');
+  expect(await overflow(), 'no horizontal scroll at 320 px').toBe(false);
+
+  // 05-design.md §8: the layout survives a doubled root font-size.
+  await page.evaluate(() => {
+    document.documentElement.style.fontSize = '200%';
   });
-
-  test('renders 120 demo days deterministically across reloads', async ({ page }) => {
-    await page.goto('/?demo=1');
-
-    await expect(page.getByTestId('demo-days')).toHaveText('120');
-    await expect(page.getByTestId('demo-repeatable')).toHaveText('identical on two runs');
-    const first = await page.getByTestId('demo-fingerprint').textContent();
-
-    await page.reload();
-    await expect(page.getByTestId('demo-days')).toHaveText('120');
-    const second = await page.getByTestId('demo-fingerprint').textContent();
-
-    expect(first).toMatch(/^[0-9a-f]{8}$/);
-    expect(second).toBe(first);
-  });
-
-  test('keeps the page usable at 320 px and 200 % zoom', async ({ page }) => {
-    await page.setViewportSize({ width: 320, height: 640 });
-    await page.goto('/?demo=1');
-
-    const overflow = await page.evaluate(
-      () => document.documentElement.scrollWidth > window.innerWidth
-    );
-    expect(overflow).toBe(false);
-
-    // Root font-size doubling must not clip or force horizontal scrolling.
-    await page.evaluate(() => {
-      document.documentElement.style.fontSize = '200%';
-    });
-    const zoomOverflow = await page.evaluate(
-      () => document.documentElement.scrollWidth > window.innerWidth
-    );
-    expect(zoomOverflow).toBe(false);
-  });
+  expect(await overflow(), 'no horizontal scroll at 200 %').toBe(false);
 });

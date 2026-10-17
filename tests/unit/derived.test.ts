@@ -230,9 +230,30 @@ describe('device gaps (D9)', () => {
   });
 
   it('raises the banner at a three-day gap', () => {
-    const gaps = deviceGaps([day('2026-10-18', {})], '2026-10-18');
+    const days = [day('2026-10-15', { steps: 5000 }), day('2026-10-18', {})];
+    const gaps = deviceGaps(days, '2026-10-18');
     expect(gaps.map((gap) => gap.metricId)).toContain('steps');
     expect(gaps.every((gap) => gap.days >= 3)).toBe(true);
+  });
+
+  it('reports nothing for a metric that has never arrived', () => {
+    // A fresh install has no device yet: nothing has stopped, so no banner.
+    expect(deviceGapDays('steps', [day('2026-10-18', {})], '2026-10-18')).toBe(0);
+    expect(deviceGaps([day('2026-10-18', {})], '2026-10-18')).toEqual([]);
+  });
+
+  it('reads the device input of a derived metric out of `extras`', () => {
+    const days = [
+      { ...day('2026-10-15', {}), extras: { sleepStart: '23:10' } },
+      day('2026-10-18', {})
+    ];
+    expect(deviceGapDays('sleep_consistency', days, '2026-10-18')).toBe(3);
+    expect(deviceGapDays('sleep_consistency', [day('2026-10-18', {})], '2026-10-18')).toBe(0);
+  });
+
+  it('never treats a weekly metric as a three-day gap', () => {
+    const days = [day('2026-10-05', { weight_trend: -0.4 }), day('2026-10-18', {})];
+    expect(deviceGaps(days, '2026-10-18').map((gap) => gap.metricId)).not.toContain('weight_trend');
   });
 });
 

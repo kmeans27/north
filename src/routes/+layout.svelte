@@ -1,9 +1,21 @@
 <script lang="ts">
+  /* The shell: wordmark, nav, theme, the data load, the keyboard listener and
+     the toast host (06-architecture.md §2). */
   import '../styles/tokens.css';
   import '../styles/base.css';
+  import { goto } from '$app/navigation';
   import { base, resolve } from '$app/paths';
   import { page } from '$app/state';
-  import { loadSession, session } from '$lib/store/session.svelte';
+  import {
+    attachKeyboard,
+    currentRowContext,
+    type KeyAction,
+    type RoutePath
+  } from '$lib/keyboard';
+  import { addDays } from '$lib/metrics/dates';
+  import { loadSession, session, undoLast } from '$lib/store/session.svelte';
+  import Sheet from '$lib/ui/Sheet.svelte';
+  import Toast from '$lib/ui/Toast.svelte';
   import type { Snippet } from 'svelte';
 
   let { children }: { children: Snippet } = $props();
@@ -17,6 +29,28 @@
   }
 
   const NAV: NavItem[] = [{ href: '/', label: 'today' }];
+
+  /** The `G` targets that exist today. Missing ones are inert, not 404s. */
+  const LIVE_ROUTES: Partial<Record<RoutePath, Route>> = { '/': '/' };
+
+  /** 04-ux.md §4, as the help overlay shows it. */
+  const KEY_HELP: { keys: string; action: string }[] = [
+    { keys: 'Tab / Shift+Tab', action: 'move between rows' },
+    { keys: 'J / K', action: 'move down / up' },
+    { keys: '1–7', action: 'set the focused row to its Nth option' },
+    { keys: 'Space', action: 'primary action' },
+    { keys: 'Backspace', action: 'clear the focused row' },
+    { keys: 'E', action: 'edit the note' },
+    { keys: '⌘Z / Ctrl+Z', action: 'undo the last write' },
+    { keys: 'G then T / W / R / S', action: 'today / week / trends / settings' },
+    { keys: '[ / ]', action: 'previous / next day' },
+    { keys: 'Esc', action: 'dismiss a sheet, blur a field' },
+    { keys: '?', action: 'this list' }
+  ];
+
+  let helpOpen = $state(false);
+  let chord = $state(false);
+  let online = $state(true);
 
   const current = $derived(page.url.pathname.replace(base, '') || '/');
   const isActive = (href: string): boolean =>
@@ -37,6 +71,79 @@
     root.dataset.theme = dark ? 'dark' : 'light';
     root.dataset.density = session.settings.density;
   });
+
+  // The word `offline` is the whole offline state (04-ux.md §9).
+  $effect(() => {
+    const update = (): void => {
+      online = navigator.onLine;
+    };
+    update();
+    window.addEventListener('online', update);
+    window.addEventListener('offline', update);
+    return () => {
+      window.removeEventListener('online', update);
+      window.removeEventListener('offline', update);
+    };
+  });
+
+  /**
+   * `[` and `]` move the viewed day. The mode param (`?demo=1`) travels with
+   * the URL, otherwise browsing days would drop out of demo mode.
+   */
+  function goToDay(date: string | null): void {
+    const parts: string[] = [];
+    if (session.demo) parts.push('demo=1');
+    if (date) parts.push(`d=${date}`);
+    void goto(resolve(parts.length > 0 ? `/?${parts.join('&')}` : '/'));
+  }
+
+  function perform(action: KeyAction): void {
+    const rows = currentRowContext();
+    switch (action.type) {
+      case 'undo':
+        void undoLast();
+        break;
+      case 'goto': {
+        const route = LIVE_ROUTES[action.route];
+        if (route) void goto(resolve(route));
+        break;
+      }
+      case 'help':
+        helpOpen = !helpOpen;
+        break;
+      case 'escape':
+        if (helpOpen) helpOpen = false;
+        else if (rows) rows.onAction(action);
+        else if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+        break;
+      case 'shiftDay': {
+        const next = addDays(session.date, action.delta);
+        goToDay(next > session.today ? null : next);
+        break;
+      }
+      case 'move':
+      case 'option':
+      case 'primary':
+      case 'clear':
+      case 'editNote':
+        rows?.onAction(action);
+        break;
+      case 'none':
+      case 'chord':
+        break;
+    }
+  }
+
+  // One listener for the whole app (06-architecture.md §2).
+  $effect(() =>
+    attachKeyboard({
+      sheetOpen: () => helpOpen,
+      onAction: perform,
+      onChordChange: (active) => {
+        chord = active;
+      }
+    })
+  );
 </script>
 
 <a class="skip-link" href="#main">Skip to content</a>
@@ -45,16 +152,21 @@
   <div class="shell topbar-inner">
     <a class="logotype wordmark" href={resolve('/')}>north</a>
 
-    <nav class="nav" aria-label="Primary">
-      {#each NAV as item (item.href)}
-        <a
-          class="navlink"
-          class:active={isActive(item.href)}
-          href={resolve(item.href)}
-          aria-current={isActive(item.href) ? 'page' : undefined}
-        >{item.label}</a>
-      {/each}
-    </nav>
+    <div class="topbar-right">
+      {#if chord}<span class="meta chord">g…</span>{/if}
+      {#if !online}<span class="meta offline">offline</span>{/if}
+      <nav class="nav" aria-label="Primary">
+        {#each NAV as item (item.href)}
+          <a
+            class="navlink"
+            class:active={isActive(item.href)}
+            href={resolve(item.href)}
+            aria-current={isActive(item.href) ? 'page' : undefined}
+          >{item.label}</a
+          >
+        {/each}
+      </nav>
+    </div>
   </div>
 </header>
 
@@ -62,15 +174,31 @@
   {@render children()}
 </main>
 
+<Toast onundo={() => void undoLast()} />
+
+<Sheet open={helpOpen} title="Keyboard" onclose={() => (helpOpen = false)}>
+  <dl class="keys">
+    {#each KEY_HELP as row (row.keys)}
+      <div class="key-row">
+        <dt class="num">{row.keys}</dt>
+        <dd class="meta">{row.action}</dd>
+      </div>
+    {/each}
+  </dl>
+</Sheet>
+
 <style>
   .skip-link {
     position: absolute;
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--tap-min);
     left: var(--s-4);
     top: calc(var(--s-16) * -1);
-    z-index: 10;
+    z-index: 40;
     background: var(--paper);
     color: var(--ink);
-    padding: var(--s-2) var(--s-3);
+    padding: 0 var(--s-3);
     border: var(--bw-hair) solid var(--rule-strong);
     font-size: var(--fs-13);
     transition: top var(--t-fast) var(--ease);
@@ -94,7 +222,23 @@
     gap: var(--s-6);
   }
 
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: var(--s-4);
+  }
+
+  .offline,
+  .chord {
+    color: var(--ink-muted);
+  }
+
   .wordmark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--tap-min);
+    min-width: var(--tap-min);
     color: var(--ink);
     text-decoration: none;
   }
@@ -107,10 +251,14 @@
 
   .navlink {
     position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--tap-min);
+    min-width: var(--tap-min);
     font-size: var(--fs-13);
     color: var(--ink-muted);
     text-decoration: none;
-    padding: var(--s-2) 0;
     transition: color var(--t-fast) var(--ease);
   }
 
@@ -135,6 +283,23 @@
   .navlink:hover::after,
   .navlink.active::after {
     transform: scaleX(1);
+  }
+
+  .keys {
+    display: grid;
+    gap: var(--s-2);
+  }
+
+  .key-row {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: var(--s-3);
+    align-items: baseline;
+  }
+
+  .key-row dt {
+    font-size: var(--fs-12);
+    color: var(--ink);
   }
 
   @media (max-width: 480px) {

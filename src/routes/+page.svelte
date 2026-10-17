@@ -1,229 +1,388 @@
 <script lang="ts">
-  /* M0 foundation page. This is the design-system specimen, not the product:
-     Today supersedes it at M3 (08-build-plan.md). It exists so the deployed URL
-     can be checked against 05-design.md before any metric UI is written. */
-  import { onMount } from 'svelte';
-  import { PILLARS, PILLAR_LABEL, REGISTRY } from '$lib/metrics/registry';
-  import { demoFingerprint, generateDemoDays } from '$lib/store/demo';
-  import { session } from '$lib/store/session.svelte';
-  import { formatDate } from '$lib/metrics/dates';
+  /* `/` — Today (04-ux.md §2). The row order is frozen once per visit (D18);
+     everything inside a row is live, so the header number updates with no
+     animation while the list never moves under your finger. */
+  import { untrack } from 'svelte';
   import { formatValue } from '$lib/format';
-  import type { Day } from '$lib/metrics/types';
+  import type { PeriodValues } from '$lib/metrics/aggregate';
+  import { addDays, diffDays, formatDate, startOfWeek } from '$lib/metrics/dates';
+  import { deviceGaps, sleepConsistency, weeklyValues } from '$lib/metrics/derived';
+  import { resolveMetrics } from '$lib/metrics/resolve';
+  import type { MetricId, ResolvedMetric, Source, Value } from '$lib/metrics/types';
+  import { provideRowContext, type KeyAction } from '$lib/keyboard';
+  import { demoFingerprint } from '$lib/store/demo';
+  import { session, setNote, writeValue } from '$lib/store/session.svelte';
+  import {
+    TODAY_ROW_LIMIT,
+    aboveTarget,
+    autoValue,
+    controlFor,
+    optionsOf,
+    rowValue,
+    scoreHeader,
+    scoreTone,
+    todayOrder,
+    weakestLink,
+    type OrderedRows,
+    type TodayOptions
+  } from '$lib/today';
+  import AutoCell from '$lib/ui/AutoCell.svelte';
+  import Banner from '$lib/ui/Banner.svelte';
+  import Bins from '$lib/ui/Bins.svelte';
+  import ChoiceRow from '$lib/ui/ChoiceRow.svelte';
+  import NoteField from '$lib/ui/NoteField.svelte';
+  import NumberField from '$lib/ui/NumberField.svelte';
+  import Row from '$lib/ui/Row.svelte';
+  import ScoreHeader from '$lib/ui/ScoreHeader.svelte';
+  import SectionLabel from '$lib/ui/SectionLabel.svelte';
+  import Segmented from '$lib/ui/Segmented.svelte';
+  import Sheet from '$lib/ui/Sheet.svelte';
+  import TriState from '$lib/ui/TriState.svelte';
+  import { showToast } from '$lib/ui/toast.svelte';
 
-  const PALETTE = [
-    '--paper', '--paper-sunken', '--ink', '--ink-muted', '--ink-faint',
-    '--rule', '--rule-strong', '--accent', '--accent-soft', '--warn', '--bad'
-  ] as const;
+  const SOURCE_LABEL: Record<Source, string> = {
+    manual: 'you',
+    health: 'watch',
+    collector: 'this computer',
+    derived: 'computed'
+  };
 
-  const TYPE_ROLES = [
-    { role: 'Day score', sample: '82', spec: '56 / 400 · figures', cls: 'score' },
-    { role: 'Secondary score', sample: '79', spec: '20 / 400 · figures', cls: 'secondary' },
-    { role: 'Section label', sample: 'NEEDS YOU', spec: '11 / 500 · uppercase', cls: 'label' },
-    { role: 'Row label', sample: 'Protein anchors', spec: '14 / 400 · ui', cls: 'row' },
-    { role: 'Row value', sample: '3 of 5', spec: '14 / 400 · figures', cls: 'value' },
-    { role: 'Prose', sample: 'One honest number', spec: '13 / 400 · ui', cls: 'prose' }
-  ] as const;
+  let rowsEl = $state<HTMLElement | null>(null);
+  let noteInput = $state<HTMLInputElement | null>(null);
+  let focusedId = $state<MetricId | null>(null);
+  let sheetFor = $state<MetricId | null>(null);
+  let expanded = $state(false);
 
-  let hexes = $state<Record<string, string>>({});
-  let demoDays = $state<Day[] | null>(null);
-  let fingerprint = $state('');
-  let repeatable = $state(false);
+  /* ─── The day's context ──────────────────────────────────────────────────── */
 
-  const byPillar = $derived(
-    PILLARS.map((p) => ({ key: p, label: PILLAR_LABEL[p], n: REGISTRY.filter((m) => m.pillar === p).length }))
+  const metrics = $derived(resolveMetrics(session.settings));
+  const metricById = $derived(new Map(metrics.map((metric) => [metric.id, metric])));
+  const history = $derived(session.days.filter((day) => !session.date || day.date <= session.date));
+
+  const weekDays = $derived.by(() => {
+    if (!session.date) return [];
+    const start = startOfWeek(session.date, session.settings.weekStartsOn);
+    const end = addDays(start, 6);
+    return history.filter((day) => day.date >= start && day.date <= end);
+  });
+
+  const weekly = $derived(weeklyValues({ week: weekDays, history }));
+
+  const derivedValues = $derived.by(() => {
+    const out: PeriodValues = {};
+    const consistency = sleepConsistency(history);
+    if (consistency.value !== null) out.sleep_consistency = consistency.value;
+    return out;
+  });
+
+  const todayOptions = $derived<TodayOptions>({
+    day: session.day,
+    days: history,
+    metrics,
+    settings: session.settings,
+    weekly,
+    derived: derivedValues
+  });
+
+  const header = $derived(scoreHeader(todayOptions));
+  const tone = $derived(
+    header.day === null ? 'muted' : scoreTone(header.day, header.recent)
   );
+  const link = $derived(weakestLink(todayOptions));
 
-  /** Stored fields for the viewed day, in registry order — the data layer, visible. */
-  const loggedRows = $derived(
-    REGISTRY.filter((metric) => session.day?.values[metric.id]).map((metric) => {
-      const value = session.day?.values[metric.id];
-      return {
-        id: metric.id,
-        label: metric.label,
-        pillar: PILLAR_LABEL[metric.pillar],
-        display: formatValue(value?.v ?? null, metric.unit, metric.decimals),
-        source: value?.src ?? 'manual',
-        locked: value?.locked === true
-      };
+  const gaps = $derived(session.today ? deviceGaps(session.days, session.today) : []);
+  const gapDays = $derived(gaps.reduce((worst, gap) => Math.max(worst, gap.days), 0));
+
+  const restDay = $derived(session.day?.restDay === true);
+  const dayNumber = $derived(history.length > 0 && session.date
+    ? diffDays(history[0]!.date, session.date) + 1
+    : 0);
+  const fingerprint = $derived(session.demo ? demoFingerprint(session.days) : '');
+
+  /* ─── The frozen order (D18) ─────────────────────────────────────────────── */
+
+  let frozen = $state<OrderedRows | null>(null);
+  let frozenKey = '';
+
+  $effect(() => {
+    const key = session.ready ? session.date : '';
+    if (!key || key === frozenKey) return;
+    frozenKey = key;
+    frozen = untrack(() => todayOrder(todayOptions));
+  });
+
+  interface ShownRow {
+    metric: ResolvedMetric;
+    value: ReturnType<typeof rowValue>;
+  }
+
+  const rows = $derived<ShownRow[]>(
+    (frozen?.order ?? []).flatMap((id) => {
+      const metric = metricById.get(id);
+      if (!metric) return [];
+      return [{ metric, value: rowValue(session.day, metric, session.settings) }];
     })
   );
 
-  onMount(() => {
-    const style = getComputedStyle(document.documentElement);
-    const next: Record<string, string> = {};
-    for (const token of PALETTE) next[token] = style.getPropertyValue(token).trim();
-    hexes = next;
+  const shownRows = $derived(expanded ? rows : rows.slice(0, TODAY_ROW_LIMIT));
+  const hiddenCount = $derived(Math.max(0, rows.length - TODAY_ROW_LIMIT));
 
-    if (new URLSearchParams(window.location.search).get('demo') === '1') loadDemo();
+  const autoRows = $derived(
+    (frozen?.auto ?? []).flatMap((id) => {
+      const metric = metricById.get(id);
+      if (!metric) return [];
+      return [{ metric, value: autoValue(todayOptions, id) }];
+    })
+  );
+
+  const sheetMetric = $derived(sheetFor ? (metricById.get(sheetFor) ?? null) : null);
+  const sheetValue = $derived(
+    sheetMetric ? rowValue(session.day, sheetMetric, session.settings) : null
+  );
+
+  /* ─── Writing ────────────────────────────────────────────────────────────── */
+
+  function write(metric: ResolvedMetric, value: Value): void {
+    void writeValue(metric.id, value);
+    showToast(
+      value === null
+        ? `${metric.label} cleared`
+        : `${metric.label} ${formatValue(value, metric.unit, metric.decimals)}`
+    );
+  }
+
+  function applyNote(note: string): void {
+    void setNote(note);
+  }
+
+  function historyFor(metric: ResolvedMetric): { date: string; value: Value }[] {
+    return history
+      .slice(-14)
+      .flatMap((day) => {
+        const entry = day.values[metric.id];
+        const value = entry ? (entry.v ?? null) : null;
+        return value === null ? [] : [{ date: day.date, value }];
+      })
+      .reverse();
+  }
+
+  /* ─── Keyboard (04-ux.md §4) ─────────────────────────────────────────────── */
+
+  const focusedMetric = $derived(focusedId ? (metricById.get(focusedId) ?? null) : null);
+
+  function focusTarget(row: HTMLElement): HTMLElement | null {
+    return (
+      row.querySelector<HTMLElement>('[role="radio"][tabindex="0"]') ??
+      row.querySelector<HTMLElement>('button, input')
+    );
+  }
+
+  function moveFocus(direction: 1 | -1): void {
+    const nodes = rowsEl ? [...rowsEl.querySelectorAll<HTMLElement>('[data-row]')] : [];
+    if (nodes.length === 0) return;
+    const index = nodes.findIndex((node) => node.contains(document.activeElement));
+    const next =
+      index === -1
+        ? direction === 1
+          ? 0
+          : nodes.length - 1
+        : Math.min(nodes.length - 1, Math.max(0, index + direction));
+    const target = nodes[next];
+    if (!target) return;
+    focusTarget(target)?.focus();
+  }
+
+  function handleRowAction(action: KeyAction): void {
+    if (action.type === 'move') {
+      moveFocus(action.direction === 'down' ? 1 : -1);
+      return;
+    }
+    if (action.type === 'editNote') {
+      noteInput?.focus();
+      return;
+    }
+
+    const metric = focusedMetric;
+    if (!metric) return;
+    const current = rowValue(session.day, metric, session.settings);
+    const options = optionsOf(metric);
+
+    switch (action.type) {
+      case 'option': {
+        const option = options[action.index];
+        if (option) write(metric, option.value);
+        return;
+      }
+      case 'clear': {
+        if (current.logged) write(metric, null);
+        return;
+      }
+      case 'primary': {
+        // Space is "next option", so one key walks a row without the digits.
+        if (options.length === 0) return;
+        const index = options.findIndex((option) => option.value === current.value);
+        const next = options[(index + 1) % options.length];
+        if (next) write(metric, next.value);
+        return;
+      }
+      default:
+        return;
+    }
+  }
+
+  function trackFocus(event: FocusEvent): void {
+    const row = (event.target as HTMLElement | null)?.closest('[data-row]');
+    focusedId = (row?.getAttribute('data-row') as MetricId | null) ?? null;
+  }
+
+  function dropFocus(event: FocusEvent): void {
+    const container = event.currentTarget as HTMLElement;
+    const next = event.relatedTarget as HTMLElement | null;
+    if (!next || !container.contains(next)) focusedId = null;
+  }
+
+  function canEditNote(): boolean {
+    const metric = focusedMetric;
+    if (!metric || metric.id !== 'learned') return false;
+    return rowValue(session.day, metric, session.settings).value === true;
+  }
+
+  $effect(() => {
+    provideRowContext({
+      state: () => ({
+        optionCount: focusedMetric ? optionsOf(focusedMetric).length : 0,
+        canEditNote: canEditNote(),
+        sheetOpen: sheetFor !== null
+      }),
+      onAction: handleRowAction
+    });
+    return () => provideRowContext(null);
   });
 
-  function loadDemo(): void {
-    const first = generateDemoDays();
-    const second = generateDemoDays();
-    demoDays = first;
-    fingerprint = demoFingerprint(first);
-    repeatable = demoFingerprint(second) === fingerprint;
-  }
+  $effect(() => {
+    if (sheetFor !== null && !sheetMetric) sheetFor = null;
+  });
 </script>
 
 <svelte:head>
   <title>north — today</title>
 </svelte:head>
 
-<div class="shell page">
-  <h1 class="visually-hidden">north — today</h1>
+{#if session.ready && gapDays >= 3}
+  <Banner message={`Watch data missing for ${gapDays} days. Scores are less reliable.`} />
+{/if}
 
-  <div class="masthead">
-    <span class="date-line">{session.ready ? formatDate(session.date) : 'Today'}</span>
+<div class="shell page">
+  <div class="date-line">
+    <span class="date">{session.ready && session.date ? formatDate(session.date) : 'Today'}</span>
     <span class="meta" data-testid="mode-marker">
+      {#if dayNumber > 0}<span class="num">day {dayNumber}</span> · {/if}
+      {#if restDay}rest day · {/if}
       <span data-testid="logical-date">{session.date || '—'}</span>
       · {session.demo ? 'demo data' : 'local only'}
+      <span hidden data-testid="demo-fingerprint">{fingerprint}</span>
+      <span hidden data-testid="demo-days">{session.demo ? session.days.length : 0}</span>
     </span>
   </div>
 
-  <section class="section" aria-labelledby="day-title">
-    <div class="section-head">
-      <h2 id="day-title" class="section-label">Stored day</h2>
-      <span class="meta">{loggedRows.length} of {REGISTRY.length} fields</span>
+  <ScoreHeader {header} {tone} />
+
+  <section class="block" aria-labelledby="needs-you">
+    <SectionLabel
+      id="needs-you"
+      label="Needs you"
+      count={`${frozen?.needsYouCount ?? 0} items`}
+    />
+
+    <div class="rows" bind:this={rowsEl} onfocusin={trackFocus} onfocusout={dropFocus}>
+      {#each shownRows as row (row.metric.id)}
+        <Row metric={row.metric} value={row.value.value} logged={row.value.logged}>
+          <div class="control-stack">
+            {#if controlFor(row.metric.widget) === 'triState'}
+              <TriState
+                metric={row.metric}
+                legendId={`row-${row.metric.id}`}
+                value={row.value.value}
+                onpick={(value) => write(row.metric, value)}
+              />
+            {:else if controlFor(row.metric.widget) === 'choice'}
+              <ChoiceRow
+                metric={row.metric}
+                legendId={`row-${row.metric.id}`}
+                value={row.value.value}
+                onpick={(value) => write(row.metric, value)}
+              />
+            {:else if controlFor(row.metric.widget) === 'segmented'}
+              <Segmented
+                metric={row.metric}
+                legendId={`row-${row.metric.id}`}
+                value={row.value.value}
+                onpick={(value) => write(row.metric, value)}
+              />
+            {:else if controlFor(row.metric.widget) === 'bins'}
+              <Bins
+                metric={row.metric}
+                legendId={`row-${row.metric.id}`}
+                value={row.value.value}
+                onpick={(value) => write(row.metric, value)}
+              />
+            {/if}
+
+            {#if row.metric.id === 'learned' && row.value.value === true}
+              <NoteField
+                value={session.day?.note ?? ''}
+                onchange={applyNote}
+                input={(element) => (noteInput = element)}
+              />
+            {/if}
+          </div>
+        </Row>
+      {/each}
     </div>
 
-    {#if !session.ready}
-      <p class="prose">Reading local storage.</p>
-    {:else if session.error}
-      <p class="prose">Storage is unavailable: {session.error}</p>
-    {:else if loggedRows.length === 0}
-      <p class="prose">Not enough logged yet.</p>
+    {#if hiddenCount > 0}
+      <button
+        class="expander"
+        type="button"
+        aria-expanded={expanded}
+        data-testid="expander"
+        onclick={() => (expanded = !expanded)}
+      >
+        {expanded ? 'Show fewer' : `+ ${hiddenCount} more`}
+      </button>
+    {/if}
+  </section>
+
+  <section class="block" aria-labelledby="automatic">
+    <SectionLabel id="automatic" label="Automatic" count={`${autoRows.length} values`} />
+    {#if autoRows.length === 0}
+      <p class="prose">Nothing arrived from a device yet.</p>
     {:else}
-      <ul class="type-list">
-        {#each loggedRows as row (row.id)}
-          <li class="type-row">
-            <span class="type-role">{row.label}</span>
-            <span class="type-spec">
-              {row.pillar} · {row.source}{row.locked ? ' · locked' : ''}
-            </span>
-            <span class="type-sample num" data-testid={`day-value-${row.id}`}>{row.display}</span>
+      <ul class="strip">
+        {#each autoRows as row (row.metric.id)}
+          <li>
+            <AutoCell
+              metric={row.metric}
+              value={row.value}
+              source={session.day?.values[row.metric.id]?.src ?? 'auto'}
+              overridden={session.day?.values[row.metric.id]?.overridden === true}
+              onopen={() => (sheetFor = row.metric.id)}
+            />
           </li>
         {/each}
       </ul>
     {/if}
-
-    <p class="meta storage-line">
-      {session.days.length} day{session.days.length === 1 ? '' : 's'} stored ·
-      {session.undoCount} undo{session.undoCount === 1 ? '' : 's'} ·
-      cutoff {String(session.settings.dayCutoffHour).padStart(2, '0')}:00 ·
-      week starts {session.settings.weekStartsOn === 1 ? 'Monday' : 'Sunday'}
-    </p>
   </section>
 
-  <section class="section" aria-labelledby="palette-title">
-    <div class="section-head">
-      <h2 id="palette-title" class="section-label">Palette</h2>
-      <span class="meta">{PALETTE.length} tokens</span>
-    </div>
-
-    <ul class="swatches">
-      {#each PALETTE as token (token)}
-        <li class="swatch-item">
-          <span class="swatch" style="background: var({token})" aria-hidden="true"></span>
-          <span class="swatch-name num">{token}</span>
-          <span class="meta">{hexes[token] ?? '—'}</span>
-        </li>
-      {/each}
-    </ul>
-  </section>
-
-  <section class="section" aria-labelledby="type-title">
-    <div class="section-head">
-      <h2 id="type-title" class="section-label">Type</h2>
-      <span class="meta">two weights · 400 and 500</span>
-    </div>
-
-    <ul class="type-list">
-      {#each TYPE_ROLES as item (item.role)}
-        <li class="type-row">
-          <span class="type-role">{item.role}</span>
-          <span class="type-spec">{item.spec}</span>
-          <span class="type-sample {item.cls}" class:num={item.cls !== 'label'} class:label-sample={item.cls === 'label'}>
-            {item.sample}
-          </span>
-        </li>
-      {/each}
-    </ul>
-  </section>
-
-  <section class="section" aria-labelledby="rhythm-title">
-    <div class="section-head">
-      <h2 id="rhythm-title" class="section-label">Rhythm</h2>
-      <span class="meta">620 px measure</span>
-    </div>
-
-    <dl class="facts">
-      <div class="fact">
-        <dt class="meta">Column</dt>
-        <dd>620 px, centred, 20 px gutters</dd>
-      </div>
-      <div class="fact">
-        <dt class="meta">Spacing</dt>
-        <dd>4 px base, 8 px rhythm</dd>
-      </div>
-      <div class="fact">
-        <dt class="meta">Rules</dt>
-        <dd>1 px hairlines, no shadows, no cards</dd>
-      </div>
-      <div class="fact">
-        <dt class="meta">Registry</dt>
-        <dd>{REGISTRY.length} metrics · {PILLARS.length} pillars</dd>
-      </div>
-    </dl>
-
-    <ul class="pillar-counts">
-      {#each byPillar as item (item.key)}
-        <li><span class="meta">{item.label}</span> <span class="num">{item.n}</span></li>
-      {/each}
-    </ul>
-  </section>
-
-  {#if demoDays}
-    <section class="section" aria-labelledby="demo-title">
-      <div class="section-head">
-        <h2 id="demo-title" class="section-label">Demo</h2>
-        <span class="meta">demo data · never persisted</span>
-      </div>
-
-      <dl class="facts">
-        <div class="fact">
-          <dt class="meta">Days</dt>
-          <dd class="num" data-testid="demo-days">{demoDays.length}</dd>
-        </div>
-        <div class="fact">
-          <dt class="meta">First</dt>
-          <dd class="num">{demoDays[0]?.date ?? '—'}</dd>
-        </div>
-        <div class="fact">
-          <dt class="meta">Last</dt>
-          <dd class="num">{demoDays.at(-1)?.date ?? '—'}</dd>
-        </div>
-        <div class="fact">
-          <dt class="meta">Fingerprint</dt>
-          <dd class="num" data-testid="demo-fingerprint">{fingerprint}</dd>
-        </div>
-        <div class="fact">
-          <dt class="meta">Repeatable</dt>
-          <dd data-testid="demo-repeatable">{repeatable ? 'identical on two runs' : 'differs between runs'}</dd>
-        </div>
-      </dl>
-    </section>
-  {:else}
-    <section class="section" aria-labelledby="demo-link-title">
-      <div class="section-head">
-        <h2 id="demo-link-title" class="section-label">Demo</h2>
-        <span class="meta">not loaded</span>
-      </div>
+  {#if link}
+    <section class="block" aria-labelledby="weakest-link">
+      <SectionLabel id="weakest-link" label="Weakest link" count={`${link.n} days`} />
       <p class="prose">
-        The demo seed is deterministic: 120 days of plausible history, generated from a
-        fixed seed.
+        <span class="link-head"
+          >{link.pillarLabel} · <span class="num">{Math.round(link.score)}</span></span
+        >
+        — {link.label}: {link.lever}
       </p>
-      <button class="text-action" type="button" onclick={loadDemo}>Load demo data</button>
     </section>
   {/if}
 
@@ -232,131 +391,116 @@
   </footer>
 </div>
 
+<Sheet
+  open={sheetMetric !== null}
+  title={sheetMetric?.label ?? ''}
+  onclose={() => (sheetFor = null)}
+>
+  {#if sheetMetric && sheetValue}
+    <p class="meta">source: {SOURCE_LABEL[sheetMetric.source]}</p>
+    <p class="meta">
+      {sheetValue.score === null ? 'no score' : `${Math.round(sheetValue.score)} of 100`}
+      {#if aboveTarget(sheetMetric, sheetValue.value)}
+        · {aboveTarget(sheetMetric, sheetValue.value)}
+      {/if}
+    </p>
+
+    <div class="sheet-control">
+      {#if controlFor(sheetMetric.widget) === 'triState'}
+        <TriState
+          metric={sheetMetric}
+          legendId={`sheet-${sheetMetric.id}`}
+          value={sheetValue.value}
+          onpick={(value) => write(sheetMetric, value)}
+        />
+      {:else}
+        <NumberField
+          metric={sheetMetric}
+          value={typeof sheetValue.value === 'number' ? sheetValue.value : null}
+          note={aboveTarget(sheetMetric, sheetValue.value)}
+          onchange={(value) => write(sheetMetric, value)}
+        />
+      {/if}
+    </div>
+
+    <h3 class="section-label history-title">Last 14 days</h3>
+    <dl class="history">
+      {#each historyFor(sheetMetric) as entry (entry.date)}
+        <div class="history-row">
+          <dt class="meta">{formatDate(entry.date, 'short')}</dt>
+          <dd class="num">{formatValue(entry.value, sheetMetric.unit, sheetMetric.decimals)}</dd>
+        </div>
+      {:else}
+        <div class="history-row"><dt class="meta">nothing yet</dt><dd></dd></div>
+      {/each}
+    </dl>
+  {/if}
+</Sheet>
+
 <style>
   .page {
-    padding-top: var(--s-8);
+    padding-top: var(--s-6);
     padding-bottom: var(--s-16);
   }
 
-  .masthead {
+  .date-line {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
     gap: var(--s-4);
+    margin-bottom: var(--s-5);
   }
 
-  .date-line {
+  .date {
     font-size: var(--fs-13);
     color: var(--ink-muted);
   }
 
-  .section {
+  .block {
     border-top: var(--bw-hair) solid var(--rule);
-    padding-top: var(--s-6);
+    padding-top: var(--s-5);
     margin-top: var(--s-6);
   }
 
-  .section-head {
+  .rows {
+    /* The one grid the rows subgrid: a shared label track and a shared control
+       track, so the cells line up down the column (05-design.md §3). */
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: var(--s-4);
+  }
+
+  .control-stack {
     display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: var(--s-4);
-    margin-bottom: var(--s-4);
-  }
-
-  .swatches {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: var(--s-4);
-  }
-
-  .swatch-item {
-    display: grid;
+    flex-direction: column;
+    align-items: flex-end;
     gap: var(--s-1);
   }
 
-  .swatch {
-    display: block;
-    height: var(--s-8);
-    border: var(--bw-hair) solid var(--rule-strong);
-    border-radius: var(--r-1);
+  .control-stack :global(.note) {
+    min-width: var(--spark-w);
   }
 
-  .swatch-name {
-    font-size: var(--fs-12);
-    color: var(--ink);
-  }
-
-  .type-list {
-    display: grid;
-  }
-
-  .type-row {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: var(--s-1) var(--s-4);
+  .expander {
+    display: flex;
     align-items: center;
-    padding: var(--s-3) 0;
-    border-bottom: var(--bw-hair) solid var(--rule);
-  }
-
-  .type-role {
+    min-height: var(--tap-min);
+    margin-top: var(--s-2);
     font-size: var(--fs-13);
-    color: var(--ink);
+    color: var(--accent);
+    text-decoration: underline;
+    text-decoration-thickness: var(--bw-hair);
+    text-underline-offset: 2px;
   }
 
-  .type-spec {
-    font-size: var(--fs-11);
-    color: var(--ink-muted);
-  }
-
-  .type-sample {
-    grid-column: 2;
-    grid-row: 1 / span 2;
-    font-size: var(--fs-14);
-    text-align: right;
-  }
-
-  .type-sample.score {
-    font-size: var(--fs-56);
-    line-height: var(--lh-tight);
-  }
-
-  .type-sample.label-sample {
-    font-size: var(--fs-11);
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: var(--ls-label);
-    color: var(--ink-muted);
-  }
-
-  .type-sample.secondary {
-    font-size: var(--fs-20);
-  }
-
-  .facts {
-    display: grid;
-    gap: var(--s-3);
-  }
-
-  .fact {
-    display: grid;
-    grid-template-columns: 8rem 1fr;
-    gap: var(--s-4);
-    align-items: baseline;
-  }
-
-  .fact dd {
-    font-size: var(--fs-13);
-  }
-
-  .pillar-counts {
+  .strip {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--s-4);
-    margin-top: var(--s-4);
-    padding-top: var(--s-3);
-    border-top: var(--bw-hair) solid var(--rule);
+    gap: var(--s-2);
+  }
+
+  .link-head {
+    color: var(--ink);
   }
 
   .footer {
@@ -365,26 +509,44 @@
     border-top: var(--bw-hair) solid var(--rule);
   }
 
-  .text-action {
-    display: inline-flex;
-    align-items: center;
-    min-height: var(--tap-min);
-    margin-top: var(--s-2);
-    color: var(--accent);
+  .sheet-control {
+    margin: var(--s-5) 0;
+  }
+
+  .history-title {
+    margin-bottom: var(--s-2);
+  }
+
+  .history {
+    display: grid;
+    gap: var(--s-1);
+  }
+
+  .history-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--s-4);
+    padding: var(--s-1) 0;
+    border-bottom: var(--bw-hair) solid var(--rule);
+  }
+
+  .history-row dd {
     font-size: var(--fs-13);
-    text-decoration: underline;
-    text-decoration-thickness: var(--bw-hair);
-    text-underline-offset: 2px;
   }
 
-  .storage-line {
-    margin-top: var(--s-4);
-  }
+  @media (max-width: 379px) {
+    .rows {
+      grid-template-columns: minmax(0, 1fr);
+    }
 
-  @media (max-width: 480px) {
-    .fact {
-      grid-template-columns: 1fr;
+    .date-line {
+      flex-direction: column;
       gap: var(--s-1);
+    }
+
+    .control-stack {
+      align-items: flex-start;
     }
   }
 </style>

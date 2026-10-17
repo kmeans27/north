@@ -296,8 +296,28 @@ export function logStreak(
 /* ─── Device gap (02-metrics.md §5, D9) ───────────────────────────────────── */
 
 /**
+ * The metrics a watch delivers *daily*, so a three-day hole is a real gap. The
+ * weekly device metrics (gym, daylight, weight) cannot have a 3-day gap, and the
+ * collector keeps its own copy in 07-automation.md (M6).
+ */
+const DAILY_DEVICE: readonly MetricId[] = ['sleep_hours', 'sleep_consistency', 'steps'];
+
+/**
+ * Whether the device delivered this metric's raw input on this day. A derived
+ * metric stores nothing: its device input is the `extras` line (02-metrics.md §5).
+ */
+function deviceDelivered(day: Day, metricId: MetricId): boolean {
+  if (metricId === 'sleep_consistency') return day.extras?.sleepStart !== undefined;
+  if (metricId === 'weight_trend') return day.extras?.weightKg !== undefined;
+  return valueOf(day, metricId) !== null;
+}
+
+/**
  * Consecutive days, counting back from `today`, with no value at all for a
  * pure-auto metric. Three or more raises the banner and marks the days partial.
+ *
+ * A gap is a device that *stopped*: a metric that has never arrived has nothing
+ * to report, so a fresh install never sees the banner.
  */
 export function deviceGapDays(
   metricId: MetricId,
@@ -305,26 +325,28 @@ export function deviceGapDays(
   today: string,
   limit = 90
 ): number {
+  if (!days.some((day) => deviceDelivered(day, metricId))) return 0;
+
   const byDate = new Map(days.map((day) => [day.date, day]));
   let count = 0;
   let cursor = today;
   while (count < limit) {
     const day = byDate.get(cursor);
-    if (day && valueOf(day, metricId) !== null) break;
+    if (day && deviceDelivered(day, metricId)) break;
     count++;
     cursor = addDays(cursor, -1);
   }
   return count;
 }
 
-/** Every pure-auto metric whose gap has reached a given threshold. */
+/** Every daily device metric whose gap has reached a given threshold. */
 export function deviceGaps(
   days: readonly Day[],
   today: string,
   threshold = 3
 ): { metricId: MetricId; days: number }[] {
   const out: { metricId: MetricId; days: number }[] = [];
-  for (const metricId of PURE_AUTO) {
+  for (const metricId of DAILY_DEVICE) {
     const gap = deviceGapDays(metricId, days, today);
     if (gap >= threshold) out.push({ metricId, days: gap });
   }
