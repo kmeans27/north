@@ -63,6 +63,7 @@ export interface DayValue {
   t: number;                   // ms epoch of the write
   editedAt?: number;           // set on any later change
   locked?: boolean;            // true once a human edited it; automation must never overwrite
+  overridden?: boolean;        // a human edited an auto value; src stays 'auto' (03-scoring.md §7)
 }
 
 export interface Day {

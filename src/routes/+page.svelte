@@ -5,6 +5,9 @@
   import { onMount } from 'svelte';
   import { PILLARS, PILLAR_LABEL, REGISTRY } from '$lib/metrics/registry';
   import { demoFingerprint, generateDemoDays } from '$lib/store/demo';
+  import { session } from '$lib/store/session.svelte';
+  import { formatDate } from '$lib/metrics/dates';
+  import { formatValue } from '$lib/format';
   import type { Day } from '$lib/metrics/types';
 
   const PALETTE = [
@@ -30,6 +33,21 @@
     PILLARS.map((p) => ({ key: p, label: PILLAR_LABEL[p], n: REGISTRY.filter((m) => m.pillar === p).length }))
   );
 
+  /** Stored fields for the viewed day, in registry order — the data layer, visible. */
+  const loggedRows = $derived(
+    REGISTRY.filter((metric) => session.day?.values[metric.id]).map((metric) => {
+      const value = session.day?.values[metric.id];
+      return {
+        id: metric.id,
+        label: metric.label,
+        pillar: PILLAR_LABEL[metric.pillar],
+        display: formatValue(value?.v ?? null, metric.unit, metric.decimals),
+        source: value?.src ?? 'manual',
+        locked: value?.locked === true
+      };
+    })
+  );
+
   onMount(() => {
     const style = getComputedStyle(document.documentElement);
     const next: Record<string, string> = {};
@@ -49,29 +67,51 @@
 </script>
 
 <svelte:head>
-  <title>north — foundation</title>
+  <title>north — today</title>
 </svelte:head>
 
 <div class="shell page">
+  <h1 class="visually-hidden">north — today</h1>
+
   <div class="masthead">
-    <span class="date-line">Foundation</span>
-    <span class="meta">build M0 · specimen</span>
+    <span class="date-line">{session.ready ? formatDate(session.date) : 'Today'}</span>
+    <span class="meta" data-testid="mode-marker">
+      <span data-testid="logical-date">{session.date || '—'}</span>
+      · {session.demo ? 'demo data' : 'local only'}
+    </span>
   </div>
 
-  <section class="hero fade-in" aria-labelledby="hero-title">
-    <h1 id="hero-title" class="visually-hidden">north — design foundation</h1>
-
-    <div class="hero-figure">
-      <span class="score num">82</span>
-      <span class="hero-caption">
-        <span class="section-label">day score</span>
-        <span class="meta">specimen</span>
-      </span>
+  <section class="section" aria-labelledby="day-title">
+    <div class="section-head">
+      <h2 id="day-title" class="section-label">Stored day</h2>
+      <span class="meta">{loggedRows.length} of {REGISTRY.length} fields</span>
     </div>
 
-    <p class="prose">
-      A quiet printed page. One number, four pillars, nineteen metrics. Ink on paper,
-      hairline rules, one accent — the numbers are the ornament.
+    {#if !session.ready}
+      <p class="prose">Reading local storage.</p>
+    {:else if session.error}
+      <p class="prose">Storage is unavailable: {session.error}</p>
+    {:else if loggedRows.length === 0}
+      <p class="prose">Not enough logged yet.</p>
+    {:else}
+      <ul class="type-list">
+        {#each loggedRows as row (row.id)}
+          <li class="type-row">
+            <span class="type-role">{row.label}</span>
+            <span class="type-spec">
+              {row.pillar} · {row.source}{row.locked ? ' · locked' : ''}
+            </span>
+            <span class="type-sample num" data-testid={`day-value-${row.id}`}>{row.display}</span>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+
+    <p class="meta storage-line">
+      {session.days.length} day{session.days.length === 1 ? '' : 's'} stored ·
+      {session.undoCount} undo{session.undoCount === 1 ? '' : 's'} ·
+      cutoff {String(session.settings.dayCutoffHour).padStart(2, '0')}:00 ·
+      week starts {session.settings.weekStartsOn === 1 ? 'Monday' : 'Sunday'}
     </p>
   </section>
 
@@ -210,31 +250,6 @@
     color: var(--ink-muted);
   }
 
-  .hero {
-    display: grid;
-    gap: var(--s-6);
-    padding: var(--s-8) 0 var(--s-10);
-  }
-
-  .hero-figure {
-    display: flex;
-    align-items: flex-end;
-    gap: var(--s-4);
-  }
-
-  .score {
-    font-size: var(--fs-56);
-    line-height: var(--lh-tight);
-    font-weight: 400;
-  }
-
-  .hero-caption {
-    display: flex;
-    flex-direction: column;
-    gap: var(--s-1);
-    padding-bottom: var(--s-2);
-  }
-
   .section {
     border-top: var(--bw-hair) solid var(--rule);
     padding-top: var(--s-6);
@@ -362,12 +377,8 @@
     text-underline-offset: 2px;
   }
 
-  @media (min-width: 900px) {
-    .hero {
-      grid-template-columns: 1fr 1fr;
-      align-items: end;
-      gap: var(--s-8);
-    }
+  .storage-line {
+    margin-top: var(--s-4);
   }
 
   @media (max-width: 480px) {

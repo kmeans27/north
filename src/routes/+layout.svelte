@@ -3,6 +3,7 @@
   import '../styles/base.css';
   import { base, resolve } from '$app/paths';
   import { page } from '$app/state';
+  import { loadSession, session } from '$lib/store/session.svelte';
   import type { Snippet } from 'svelte';
 
   let { children }: { children: Snippet } = $props();
@@ -20,6 +21,22 @@
   const current = $derived(page.url.pathname.replace(base, '') || '/');
   const isActive = (href: string): boolean =>
     href === '/' ? current === '/' : current === href || current.startsWith(href + '/');
+
+  // Load on mount and on every search change (?d=, ?demo=1).
+  $effect(() => {
+    void loadSession(page.url.search);
+  });
+
+  // Settings own the theme and density (04-ux.md §7, 05-design.md §1).
+  $effect(() => {
+    const root = document.documentElement;
+    const preference = session.settings.theme;
+    const dark =
+      preference === 'dark' ||
+      (preference === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    root.dataset.theme = dark ? 'dark' : 'light';
+    root.dataset.density = session.settings.density;
+  });
 </script>
 
 <a class="skip-link" href="#main">Skip to content</a>
