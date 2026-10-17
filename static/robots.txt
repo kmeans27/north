@@ -1,0 +1,3 @@
+# north is a personal dashboard. Nothing here should ever be indexed.
+User-agent: *
+Disallow: /

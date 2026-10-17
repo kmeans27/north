@@ -1,0 +1,153 @@
+/* src/styles/base.css — reset + the printed-page base (05-design.md §2, §3).
+   No hardcoded colours, sizes or fonts: tokens only. */
+
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/inter-var-latin.woff2') format('woff2-variations');
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: var(--fs-14);
+  line-height: var(--lh-body);
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, h4, p, figure, blockquote, dl, dd {
+  margin: 0;
+}
+
+ul, ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+input, select, textarea {
+  font: inherit;
+  color: inherit;
+}
+
+a {
+  color: var(--accent);
+  text-decoration-thickness: var(--bw-hair);
+  text-underline-offset: 2px;
+}
+
+/* Focus ring is never removed (05-design.md §8). */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Figures are tabular (05-design.md §2). */
+.num {
+  font-family: var(--font-figures);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+/* ── Layout ─────────────────────────────────────────────────────────────── */
+
+.shell {
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: 0 var(--s-5);
+}
+
+/* Full-bleed hairline rule; sections have s-6 above and below (05-design.md §3). */
+.rule {
+  border: 0;
+  border-top: var(--bw-hair) solid var(--rule);
+  margin: 0;
+}
+
+/* ── Type roles (05-design.md §2) ───────────────────────────────────────── */
+
+.logotype {
+  font-size: var(--fs-14);
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: lowercase;
+}
+
+.section-label {
+  font-size: var(--fs-11);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: var(--ls-label);
+  color: var(--ink-muted);
+}
+
+.meta {
+  font-size: var(--fs-11);
+  color: var(--ink-muted);
+}
+
+.prose {
+  font-size: var(--fs-13);
+  line-height: var(--lh-body);
+  max-width: 62ch;
+}
+
+/* ── Accessibility helpers ──────────────────────────────────────────────── */
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* 05-design.md §6: nothing animates on load except a single 400 ms opacity fade
+   of the score header; prefers-reduced-motion zeroes every duration. */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.fade-in {
+  animation: fade-in var(--t-fade) var(--ease) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0ms !important;
+    transition-duration: 0ms !important;
+  }
+}

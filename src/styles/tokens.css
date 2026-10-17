@@ -1,0 +1,69 @@
+/* src/styles/tokens.css — copy verbatim from 05-design.md §1.
+   Every colour, size, font and duration in the app comes from here.
+   AGENTS.md forbids hardcoded values anywhere else. */
+
+:root {
+  /* palette — light (default) */
+  --paper:        #FAF9F6;
+  --paper-sunken: #F3F1EC;
+  --ink:          #16171A;
+  --ink-muted:    #6B6A66;
+  --ink-faint:    #A9A7A0;
+  --rule:         #E4E1DA;
+  --rule-strong:  #CFCBC2;
+  --accent:       #2F5D50;   /* pine */
+  --accent-soft:  #DCE6E2;
+  --warn:         #9A6B2F;   /* ochre */
+  --bad:          #8C3B32;   /* brick */
+
+  /* spacing — 4 px base */
+  --s-1: 4px;  --s-2: 8px;  --s-3: 12px; --s-4: 16px;
+  --s-5: 20px; --s-6: 24px; --s-8: 32px; --s-10: 40px; --s-12: 48px; --s-16: 64px;
+
+  /* type */
+  --font-ui:      'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-figures: ui-monospace, 'SF Mono', 'JetBrains Mono', monospace;
+  --fs-11: 11px; --fs-12: 12px; --fs-13: 13px; --fs-14: 14px;
+  --fs-16: 16px; --fs-20: 20px; --fs-24: 24px; --fs-56: 56px;
+  --ls-label: 0.08em;
+  --lh-tight: 1.15; --lh-body: 1.5;
+
+  /* geometry */
+  --r-0: 0px; --r-1: 2px; --r-2: 4px;
+  --bw-hair: 1px;
+  --row-h: 52px;
+  --tap-min: 44px;
+  --measure: 620px;
+  --topbar-h: 56px;   /* 05-design.md §3 */
+
+  /* motion */
+  --t-fast: 120ms; --t-base: 180ms; --t-slow: 240ms;
+  --t-fade: 400ms;    /* the single load fade of the score header, 05-design.md §6 */
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  --paper:        #111214;
+  --paper-sunken: #17181B;
+  --ink:          #E8E6E1;
+  --ink-muted:    #9A9892;
+  --ink-faint:    #6A6963;
+  --rule:         #26282C;
+  --rule-strong:  #3A3D42;
+  --accent:       #7FB3A0;
+  --accent-soft:  #1E2A27;
+  --warn:         #C99A5B;
+  --bad:          #C47066;
+  color-scheme: dark;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --t-fast: 0ms; --t-base: 0ms; --t-slow: 0ms; }
+}
+
+/* density — set by Settings → Appearance (05-design.md §3) */
+:root[data-density='compact'] {
+  --row-h: 44px;
+}
