@@ -3,10 +3,12 @@ import {
   addDays,
   diffDays,
   formatDate,
+  formatDateRange,
   isoWeekNumber,
   logicalDate,
   monthKey,
   parseDate,
+  startOfWeek,
   toISODate,
   weekKey,
   weekdayIndex
@@ -130,6 +132,33 @@ describe('formatDate', () => {
 
   it('does not drift across a timezone boundary', () => {
     expect(formatDate('2026-01-01', 'short')).toBe('1 Jan');
+  });
+});
+
+describe('startOfWeek', () => {
+  it('finds the Monday of the week', () => {
+    expect(startOfWeek('2026-10-17', 1)).toBe('2026-10-12');
+    expect(startOfWeek('2026-10-12', 1)).toBe('2026-10-12');
+    expect(startOfWeek('2026-10-18', 1)).toBe('2026-10-12');
+  });
+
+  it('honours a Sunday start', () => {
+    expect(startOfWeek('2026-10-18', 0)).toBe('2026-10-18');
+    expect(startOfWeek('2026-10-17', 0)).toBe('2026-10-11');
+  });
+
+  it('crosses a year boundary', () => {
+    expect(startOfWeek('2027-01-01', 1)).toBe('2026-12-28');
+  });
+});
+
+describe('formatDateRange', () => {
+  it('repeats the month once inside one month', () => {
+    expect(formatDateRange('2026-10-08', '2026-10-14')).toBe('8–14 October');
+  });
+
+  it('names both months across a boundary', () => {
+    expect(formatDateRange('2026-09-28', '2026-10-04')).toBe('28 Sept – 4 Oct');
   });
 });
 

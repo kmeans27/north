@@ -185,3 +185,24 @@ export function parseDate(input: string | null | undefined): string | null {
 export function diffDays(from: string, to: string): number {
   return Math.round((utcDate(to).getTime() - utcDate(from).getTime()) / DAY_MS);
 }
+
+/** The first day of the week containing `iso`, honouring `weekStartsOn`. */
+export function startOfWeek(iso: string, weekStartsOn: 0 | 1 = 1): string {
+  const offset = (weekdayIndex(iso) - weekStartsOn + 7) % 7;
+  return addDays(iso, -offset);
+}
+
+const MONTH_LONG = new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', month: 'long' });
+
+/**
+ * A date range in English: `8–14 October` inside one month, `28 Sep – 4 Oct`
+ * across two. Used by the Record insight card (02-metrics.md §6).
+ */
+export function formatDateRange(start: string, end: string): string {
+  const a = utcDate(start);
+  const b = utcDate(end);
+  if (a.getUTCFullYear() === b.getUTCFullYear() && a.getUTCMonth() === b.getUTCMonth()) {
+    return `${a.getUTCDate()}–${b.getUTCDate()} ${MONTH_LONG.format(b)}`;
+  }
+  return `${SHORT_DATE.format(a)} – ${SHORT_DATE.format(b)}`;
+}

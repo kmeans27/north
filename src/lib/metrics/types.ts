@@ -75,6 +75,14 @@ export interface Day {
   values: Partial<Record<MetricId, DayValue>>;
 }
 
+/* The writable score fields a person may retarget (06-architecture.md §4:
+   "any writable field of a MetricDef (`target`, `weight`, `good`, `bad`, `max`,
+   `lever`, `help`, `visible`)"). The score numbers are flattened to the top
+   level so a preset reads `{ target: 20 }`, not `{ score: { target: 20 } }`. */
+export type ScoreOverride = Pick<ScoreSpec, 'target' | 'zeroAt' | 'good' | 'bad' | 'max' | 'stretch'>;
+
+export type MetricOverride = Omit<Partial<MetricDef>, 'score'> & Partial<ScoreOverride>;
+
 export interface Settings {
   version: number;             // settings schema version
   bodyweightKg: number;
@@ -86,11 +94,12 @@ export interface Settings {
   eveningPrompt: string;       // 'HH:MM'
   theme: 'light' | 'dark' | 'system';
   density: 'comfortable' | 'compact';
-  overrides: Partial<Record<MetricId, Partial<MetricDef>>>;
+  overrides: Partial<Record<MetricId, MetricOverride>>;
   hidden: MetricId[];
   automation: { health: boolean; collector: boolean; sync: boolean; repo: string | null };
 }
 
 /* A MetricDef with registry + settings overrides merged. Produced by resolve.ts;
-   nothing else in the app reads REGISTRY directly (06-architecture.md §4). */
-export type ResolvedMetric = MetricDef;
+   nothing else in the app reads REGISTRY directly (06-architecture.md §4).
+   `score` is always a literal spec here — the function form is already applied. */
+export type ResolvedMetric = Omit<MetricDef, 'score'> & { score: ScoreSpec };
