@@ -85,10 +85,10 @@ a {
   padding: 0 var(--s-5);
 }
 
-/* docs/V2.md §6: the dashboard reads across the width; every other screen keeps
+/* docs/V2.1.md §3: the dashboard reads across the width; every other screen keeps
    the 620 px measure. One wrapper, so the top bar and the page stay aligned. */
 .shell.wide {
-  max-width: var(--measure-wide);
+  max-width: var(--measure-full);
 }
 
 /* Full-bleed hairline rule; sections have s-6 above and below (05-design.md §3). */

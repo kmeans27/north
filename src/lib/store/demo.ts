@@ -13,6 +13,7 @@
 
 import type { Day, DayValue, MetricId, Value } from '../metrics/types';
 import { addDays, localMidnightEpoch, monthOf, toISODate, weekdayIndex } from '../metrics/dates';
+import { mulberry32, pick, pickBin } from '../random';
 
 export const DEMO_SEED = 20261017;
 export const DEMO_DAYS = 120;
@@ -26,17 +27,8 @@ export interface DemoOptions {
   seed?: number;
 }
 
-/** mulberry32 — 32-bit, fast, deterministic, no dependency. */
-export function mulberry32(seed: number): () => number {
-  let a = seed >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
+/** mulberry32 — kept exported here for the seed script; lives in `lib/random.ts`. */
+export { mulberry32 };
 
 const MANUAL: ReadonlySet<MetricId> = new Set<MetricId>([
   'protein', 'creatine', 'greens', 'alcohol', 'deep_blocks', 'learned', 'read',
@@ -60,20 +52,6 @@ function clamp(n: number, lo: number, hi: number): number {
 
 function roundTo(n: number, step: number): number {
   return Math.round(n / step) * step;
-}
-
-function pick<T>(rng: () => number, list: readonly T[]): T {
-  const item = list[Math.floor(rng() * list.length)];
-  // list is never empty at any call site
-  return item as T;
-}
-
-/** One already-drawn [0, 1) number → the bin whose ascending cut it falls under. */
-function pickBin(draw: number, values: readonly number[], cuts: readonly number[]): number {
-  for (let i = 0; i < cuts.length; i++) {
-    if (draw < cuts[i]!) return values[i]!;
-  }
-  return values[values.length - 1]!;
 }
 
 function hhmm(minutes: number): string {

@@ -1,5 +1,6 @@
-/* src/styles/tokens.css — copy verbatim from 05-design.md §1.
-   Every colour, size, font and duration in the app comes from here.
+/* src/styles/tokens.css — v1 values copied verbatim from 05-design.md §1, extended
+   by docs/V2.1.md §2.1 with the dashboard's card surface, pillar hues and tile
+   geometry. Every colour, size, font and duration in the app comes from here.
    AGENTS.md forbids hardcoded values anywhere else. */
 
 :root {
@@ -15,6 +16,23 @@
   --accent-soft:  #DCE6E2;
   --warn:         #9A6B2F;   /* ochre */
   --bad:          #8C3B32;   /* brick */
+
+  /* palette — V2.1 additions (docs/V2.1.md §2.1). The card is never pure white. */
+  --card:          #FDFCFA;
+  --card-sunken:   #F4F2ED;
+  --good-soft:     #E3EFE8;
+  --warn-soft:     #F6EBDC;
+  --bad-soft:      #F6E3E0;
+
+  /* the four categories: a tile's rule, and a chart bar that is doing fine */
+  --pillar-body:           #2F5D50;   /* pine */
+  --pillar-mind:           #3A4E8C;   /* indigo */
+  --pillar-attention:      #266B75;   /* teal */
+  --pillar-capital:        #7C4A67;   /* plum */
+  --pillar-body-soft:      #DCE6E2;
+  --pillar-mind-soft:      #E1E5F1;
+  --pillar-attention-soft: #DCEDEF;
+  --pillar-capital-soft:   #F0E3EB;
 
   /* spacing — 4 px base */
   --s-1: 4px;  --s-2: 8px;  --s-3: 12px; --s-4: 16px;
@@ -35,6 +53,20 @@
   --tap-min: 44px;
   --measure: 620px;
   --measure-wide: 1040px;  /* docs/V2.md §6: the dashboard's two-up grid */
+  --measure-full: 1400px;  /* docs/V2.1.md §3: the tile grid's full width */
+  --cols: 12;              /* docs/V2.1.md §3: the tile grid's columns */
+  --tile-h-sm: 84px;       /* docs/V2.1.md §3: control tiles */
+  --tile-h-md: 108px;      /* value + a medium chart */
+  --tile-h-lg: 124px;      /* the metrics that matter most */
+  --tile-pad: var(--s-3);
+  --tile-gap: var(--s-3);
+  --ring-lg: 96px;         /* the hero's score ring */
+  --area-h-lg: 84px;       /* the hero's 30-day area */
+  --bars-h-lg: 44px;       /* a tile's 14-day bars */
+  --bars-h-sm: 28px;       /* a compact tile's bars */
+  --spark-band-w: 160px;   /* a band header's 30-day line */
+  --r-3: 8px;              /* docs/V2.1.md §2: tile radius, no shadow */
+  --r-4: 12px;
   --topbar-h: 56px;   /* 05-design.md §3 */
   --cell: 36px;       /* 05-design.md §4: the visible cell box */
   --dot: 4px;         /* AutoCell source dot */
@@ -68,6 +100,21 @@
   --accent-soft:  #1E2A27;
   --warn:         #C99A5B;
   --bad:          #C47066;
+
+  /* V2.1 (§2.1) — dark. Hues light enough for text on a card, ≥ 4.5:1. */
+  --card:          #1A1B1E;
+  --card-sunken:   #232529;
+  --good-soft:     #1C2A25;
+  --warn-soft:     #2B2419;
+  --bad-soft:      #2E2220;
+  --pillar-body:           #7FB3A0;
+  --pillar-mind:           #9DAADB;
+  --pillar-attention:      #7FBDC7;
+  --pillar-capital:        #C79BB8;
+  --pillar-body-soft:      #1E2A27;
+  --pillar-mind-soft:      #20253A;
+  --pillar-attention-soft: #1B2C30;
+  --pillar-capital-soft:   #2A2128;
   color-scheme: dark;
 }
 

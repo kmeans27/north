@@ -27,7 +27,7 @@ test('1. the home screen is a dashboard of parts, not a list', async ({ page }) 
   // Every pillar has a panel, and each one carries its own headline figure.
   await expect(page.locator('[data-panel]')).toHaveCount(4);
   for (const pillar of ['body', 'mind', 'attention', 'capital']) {
-    await expect(panel(page, pillar).getByRole('heading')).toBeVisible();
+    await expect(panel(page, pillar).getByRole('heading', { level: 2 })).toBeVisible();
     await expect(panel(page, pillar).locator('[data-panel-score]')).toBeVisible();
   }
 

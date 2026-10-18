@@ -21,7 +21,7 @@
   let { children }: { children: Snippet } = $props();
 
   /** Routes that exist. Grows milestone by milestone; a dead link is worse than none. */
-  type Route = '/' | '/log' | '/week' | '/trends' | '/settings';
+  type Route = '/' | '/log' | '/week' | '/trends' | '/settings' | '/preview';
   /** A route with the demo flag kept on; typed so `resolve()` accepts it. */
   type NavTarget = Route | `${Route}?demo=1`;
 
@@ -45,11 +45,15 @@
     '/log': '/log',
     '/week': '/week',
     '/trends': '/trends',
-    '/settings': '/settings'
+    '/settings': '/settings',
+    '/preview': '/preview'
   };
 
   /** The one-day screens: `[` and `]` move the viewed day on these, nowhere else. */
   const DAY_ROUTES: readonly string[] = ['/', '/log'];
+
+  /** The screens that read across the full width (docs/V2.1.md §3). */
+  const WIDE_ROUTES: readonly string[] = ['/', '/preview'];
 
   /** 04-ux.md §4, as the help overlay shows it. */
   const KEY_HELP: { keys: string; action: string }[] = [
@@ -61,6 +65,7 @@
     { keys: 'E', action: 'edit the note' },
     { keys: '⌘Z / Ctrl+Z', action: 'undo the last write' },
     { keys: 'G then D / L / W / R / S', action: 'dashboard / log / week / trends / settings' },
+    { keys: 'G then P', action: 'preview of a finished day (sample data)' },
     { keys: '[ / ]', action: 'previous / next day (dashboard and log)' },
     { keys: 'Esc', action: 'dismiss a sheet, blur a field' },
     { keys: '?', action: 'this list' }
@@ -176,7 +181,7 @@
 <a class="skip-link" href="#main">Skip to content</a>
 
 <header class="topbar">
-  <div class="shell topbar-inner" class:wide={current === '/'}>
+  <div class="shell topbar-inner" class:wide={WIDE_ROUTES.includes(current)}>
     <a class="logotype wordmark" href={resolve(href('/'))}>north</a>
 
     <div class="topbar-right">

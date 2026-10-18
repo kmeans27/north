@@ -321,6 +321,12 @@ describe('optionsOf', () => {
       { label: '5h+', value: 6 }
     ]);
   });
+
+  it('gives a typed number no cells at all, so nothing invents a step', () => {
+    expect(optionsOf(byId('steps'))).toEqual([]);
+    expect(optionsOf(byId('sleep_hours'))).toEqual([]);
+    expect(optionsOf(byId('distraction_min'))).toEqual([]);
+  });
 });
 
 describe('aboveTarget', () => {
@@ -562,5 +568,13 @@ describe('displayValue (04-ux.md §3 — the value reads as a word)', () => {
 
   it('falls back to the plain figure for a number field', () => {
     expect(displayValue(byId('sleep_hours'), 7.4)).toContain('7.4');
+  });
+
+  it('prints a typed number with its unit, never as a phantom cell label', () => {
+    // 4,000 steps is a multiple of a thousand: it must not read `4000`.
+    expect(displayValue(byId('steps'), 4000)).toBe('4 k');
+    expect(displayValue(byId('steps'), 8300)).toBe('8.3 k');
+    expect(displayValue(byId('sleep_consistency'), 7)).toBe('7 min');
+    expect(displayValue(byId('distraction_min'), 40)).toBe('40 min');
   });
 });

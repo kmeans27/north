@@ -47,7 +47,7 @@
   aria-label="{label}: {summary}"
   preserveAspectRatio="none"
 >
-  <path d={path} fill="none" stroke="var(--accent)" stroke-width="1" vector-effect="non-scaling-stroke" />
+  <path d={path} fill="none" stroke="var(--spark, var(--accent))" stroke-width="1.25" vector-effect="non-scaling-stroke" />
 </svg>
 
 <style>

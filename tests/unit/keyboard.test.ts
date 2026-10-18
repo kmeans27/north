@@ -64,7 +64,14 @@ describe('the G chord', () => {
       preventDefault: true
     });
 
-    expect(ROUTE_KEYS).toEqual({ d: '/', l: '/log', w: '/week', r: '/trends', s: '/settings' });
+    expect(ROUTE_KEYS).toEqual({
+      d: '/',
+      l: '/log',
+      w: '/week',
+      r: '/trends',
+      s: '/settings',
+      p: '/preview'
+    });
     expect(resolveKey(key('d'), state({ chord: true })).action).toEqual({
       type: 'goto',
       route: '/'
@@ -84,6 +91,10 @@ describe('the G chord', () => {
     expect(resolveKey(key('s'), state({ chord: true })).action).toEqual({
       type: 'goto',
       route: '/settings'
+    });
+    expect(resolveKey(key('p'), state({ chord: true })).action).toEqual({
+      type: 'goto',
+      route: '/preview'
     });
   });
 

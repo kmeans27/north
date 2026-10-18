@@ -355,6 +355,12 @@ export function optionsOf(metric: ResolvedMetric): RowOption[] {
   if (metric.bins && metric.bins.length > 0) {
     return metric.bins.map((bin) => ({ label: bin.label, value: bin.value }));
   }
+  /* A typed number has no cells at all. Building one per step up to the target
+     (`0…7000` for steps) would hand `displayValue` a phantom cell label — `4000`
+     instead of `4 k` — and would let a digit key write a stray count. */
+  if (metric.widget !== 'counter') {
+    return [];
+  }
   // A counter's meaningful range is 0..target: overshoot never earns more (D7).
   const count = Math.max(1, Math.round(metric.score.target));
   return Array.from({ length: count + 1 }, (_, value) => ({ label: String(value), value }));

@@ -7,14 +7,15 @@
  */
 
 /** Routes a `G` chord can reach (04-ux.md §4). */
-export type RoutePath = '/' | '/log' | '/week' | '/trends' | '/settings';
+export type RoutePath = '/' | '/log' | '/week' | '/trends' | '/settings' | '/preview';
 
 export const ROUTE_KEYS: Readonly<Record<string, RoutePath>> = {
   d: '/',
   l: '/log',
   w: '/week',
   r: '/trends',
-  s: '/settings'
+  s: '/settings',
+  p: '/preview'
 };
 
 export type KeyAction =

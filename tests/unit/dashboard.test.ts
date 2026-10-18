@@ -7,16 +7,22 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  BOARD_COLUMNS,
   PANEL_DAYS,
   SPARK_DAYS,
   WEEK_BARS,
   chartCeiling,
   chartFor,
   dashboard,
+  fillRow,
+  goalText,
   handLogged,
   inlineControl,
   lowerIsBetter,
+  metricDailyScores,
   panelOrder,
+  tileTone,
+  tileUnit,
   type DashboardOptions
 } from '../../src/lib/dashboard';
 import type { Day, MetricId, ResolvedMetric } from '../../src/lib/metrics/types';
@@ -291,5 +297,121 @@ describe('dashboard', () => {
     expect(done.open).not.toContain('creatine');
     // A collector metric is tappable on the dashboard but is not one of the nine.
     expect(done.open).not.toContain('adult');
+  });
+});
+
+/* ─── The board (docs/V2.1.md §3) ─────────────────────────────────────────── */
+
+describe('the board', () => {
+  const days = dates('2026-09-20', 40).map((date) => perfectDay(date));
+
+  it('lays every visible metric out exactly once, in rows that fill the grid', () => {
+    const model = dashboard(options(days));
+    const placed = model.panels.flatMap((panel) => panel.rows.flat().map((row) => row.metric.id));
+    const visible = METRICS.filter((metric) => metric.visible).map((metric) => metric.id);
+
+    expect([...placed].sort()).toEqual([...visible].sort());
+    expect(new Set(placed).size).toBe(placed.length);
+
+    for (const panel of model.panels) {
+      for (const row of panel.rows) {
+        const units = row.reduce((total, tile) => total + tile.span, 0);
+        expect(units, `${panel.pillar} row`).toBe(BOARD_COLUMNS);
+        expect(row.length).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('gives weight a width: sleep is wider than creatine', () => {
+    const body = dashboard(options(days)).panels.find((panel) => panel.pillar === 'body');
+    const span = (id: MetricId) => body?.rows.flat().find((row) => row.metric.id === id)?.span;
+    expect(span('sleep_hours')).toBeGreaterThan(span('creatine') ?? 0);
+    // Every row is written out and every row fills: no metric can leave a hole.
+    expect(span('sleep_hours')).toBe(4);
+  });
+
+  it('shares the columns of a hidden metric among the rest of its row', () => {
+    const present = new Set<MetricId>(['sleep_hours', 'protein', 'greens']);
+    const row = fillRow(
+      [
+        ['sleep_hours', 4],
+        ['protein', 3],
+        ['greens', 3],
+        ['sleep_consistency', 2]
+      ],
+      present
+    );
+    expect(row.map((tile) => tile.id)).toEqual(['sleep_hours', 'protein', 'greens']);
+    expect(row.reduce((total, tile) => total + tile.span, 0)).toBe(BOARD_COLUMNS);
+    // Slack goes to the widest tile first, then round-robin.
+    expect(row.map((tile) => tile.span)).toEqual([5, 4, 3]);
+
+    expect(fillRow([], present)).toEqual([]);
+  });
+
+  it('reads a weekly metric as its week, not as the day it was written on', () => {
+    // The device writes one row a day, so today's row says "no session" on a week
+    // that has two: the tile has to show the week.
+    const week = dates('2026-10-12', 7).map((date, index) =>
+      day(date, { strength_sessions: index === 0 || index === 3 ? 1 : 0 })
+    );
+    const rows = dashboard(options(week)).panels.flatMap((panel) => panel.metrics);
+    const gym = rows.find((row) => row.metric.id === 'strength_sessions');
+    expect(gym?.value.value).toBe(0);
+    expect(gym?.shown).toBe(2);
+    expect(gym?.score).toBe(100);
+  });
+
+  it('gives a tile the score of what it shows, so badge and figure agree', () => {
+    const week = dates('2026-10-12', 7).map((date) => day(date, { protein: 4 }));
+    const rows = dashboard(options(week)).panels.flatMap((panel) => panel.metrics);
+    const protein = rows.find((row) => row.metric.id === 'protein');
+    expect(protein?.shown).toBe(4);
+    expect(protein?.score).toBe(100);
+  });
+
+  it('reads a metric\u2019s own score history for the tile that has no chart', () => {
+    const steady = dates('2026-09-20', 40).map((date) =>
+      day(date, { protein: 4 }, { extras: { sleepStart: '23:00' } })
+    );
+    const series = metricDailyScores(byId('protein'), options(steady));
+    expect(series).toHaveLength(SPARK_DAYS);
+    expect(series.at(-1)).toBe(100);
+    // A monthly figure is one value a month: a line of a constant is not a shape.
+    expect(metricDailyScores(byId('savings_rate'), options(steady))).toEqual([]);
+  });
+
+  it('states the target in words, and states nothing where there is no scale', () => {
+    expect(goalText(byId('sleep_hours'))).toBe('target 7.5 h');
+    expect(goalText(byId('distraction_min'))).toBe('under 90 min');
+    expect(goalText(byId('phone_total'))).toBe('ideal \u2264 2h');
+    expect(goalText(byId('weight_trend'))).toBe('maintaining');
+    // A tick has no scale to state: "target 1" would be noise.
+    expect(goalText(byId('creatine'))).toBeNull();
+  });
+
+  it('tones a figure without ever shaming it', () => {
+    expect(tileTone(null)).toBeNull();
+    expect(tileTone(100)).toBe('accent');
+    expect(tileTone(75)).toBe('pillar');
+    expect(tileTone(40)).toBe('warn');
+    expect(tileTone(0)).toBe('warn');
+  });
+
+  it('never prints a unit twice in one tile', () => {
+    // A bare cell label needs it beside the label.
+    expect(tileUnit(byId('protein'))).toBe('×32 g');
+    expect(tileUnit(byId('deep_blocks'))).toBe('×45 min');
+    expect(tileUnit(byId('strength_sessions'))).toBe('/wk');
+    // A typed number prints its own unit in the figure.
+    expect(tileUnit(byId('sleep_hours'))).toBe('');
+    expect(tileUnit(byId('steps'))).toBe('');
+    expect(tileUnit(byId('savings_rate'))).toBe('');
+    // A bin labels itself.
+    expect(tileUnit(byId('phone_total'))).toBe('');
+    // The label already says it: `Daylight days` + `days` would read twice.
+    expect(tileUnit(byId('daylight_days'))).toBe('');
+    // `Greens & fruit` does not name servings, so the unit stays.
+    expect(tileUnit(byId('greens'))).toBe('servings');
   });
 });
