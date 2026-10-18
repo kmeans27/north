@@ -3,11 +3,19 @@
      Two jobs, and no more: the handful of values every score is computed from,
      and getting your data out of the browser. No wizard, no presets, no
      per-metric target editing. */
+  import { resolve } from '$app/paths';
   import { formatHour, formatNumber, joinUnit, plural } from '$lib/format';
   import { formatDate } from '$lib/metrics/dates';
   import { resolveMetrics } from '$lib/metrics/resolve';
   import { buildExport, download, serializeExport, toCSV } from '$lib/store/export';
-  import { importBackup, session, updateSettings } from '$lib/store/session.svelte';
+  import {
+    HEALTH_FORMAT,
+    parseHealthFile,
+    planHealthImport,
+    type HealthFile,
+    type HealthPlan
+  } from '$lib/store/health';
+  import { importBackup, importHealth, session, updateSettings } from '$lib/store/session.svelte';
   import type { Settings } from '$lib/metrics/types';
   import NumberField from '$lib/ui/NumberField.svelte';
   import SectionLabel from '$lib/ui/SectionLabel.svelte';
@@ -86,6 +94,52 @@
       note = error instanceof Error ? error.message : 'That backup could not be read.';
     }
   }
+
+  /* ─── Apple Health, by hand (docs/V2.1.md §6) ───────────────────────────── */
+
+  /** A file that is waiting for a yes: parsed and planned, nothing written. */
+  let healthFile = $state<HealthFile | null>(null);
+  let healthPlan = $state<HealthPlan | null>(null);
+  let healthNote = $state<string | null>(null);
+
+  function fieldCount(plan: HealthPlan): string {
+    return `${plan.writes.length} ${plural(plan.writes.length, 'value')}`;
+  }
+
+  async function readHealth(event: Event): Promise<void> {
+    const input = event.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    try {
+      const parsed = parseHealthFile(await file.text());
+      healthFile = parsed;
+      // Read against the days already here, so the preview is exact.
+      healthPlan = planHealthImport(parsed, session.days);
+      healthNote = null;
+    } catch (error) {
+      healthFile = null;
+      healthPlan = null;
+      healthNote = error instanceof Error ? error.message : 'That health file could not be read.';
+    }
+  }
+
+  async function confirmHealth(): Promise<void> {
+    const waiting = healthFile;
+    if (!waiting) return;
+    healthFile = null;
+    healthPlan = null;
+    try {
+      const plan = await importHealth(waiting);
+      note = `Apple Health: wrote ${fieldCount(plan)} across ${plan.days} ${plural(plan.days, 'day')}.`;
+      healthNote =
+        plan.kept.length > 0
+          ? `${plan.kept.length} ${plural(plan.kept.length, 'value')} you entered by hand were kept.`
+          : 'Nothing you entered by hand was touched.';
+    } catch (error) {
+      healthNote = error instanceof Error ? error.message : 'That health file could not be read.';
+    }
+  }
 </script>
 
 <svelte:head>
@@ -100,6 +154,11 @@
       Targets are computed from these values, not stored per day: change one and the whole history
       re-scores. Nothing here leaves this device.
     </p>
+
+    <div class="actions">
+      <a class="button" href={resolve('/preview')}>See a finished day</a>
+      <span class="meta">Sample data: the whole board filled in, nothing stored.</span>
+    </div>
 
     <section class="block" aria-labelledby="you">
       <SectionLabel id="you" label="You" />
@@ -244,6 +303,55 @@
         />
       </div>
 
+      <div class="import health">
+        <label class="setting-label" for="health-file">Apple Health</label>
+        <input
+          id="health-file"
+          class="file"
+          type="file"
+          accept="application/json,.json"
+          aria-describedby="health-help"
+          onchange={(event) => void readHealth(event)}
+        />
+        <p class="meta" id="health-help">
+          A <code>{HEALTH_FORMAT}</code> file. Make one from Apple's own export with
+          <code>python3 server/health_export.py</code> — it is read here and never uploaded, and a
+          value you entered by hand is never overwritten.
+        </p>
+      </div>
+
+      {#if healthFile && healthPlan}
+        <div class="plan" data-testid="health-plan">
+          <p class="meta">
+            {healthPlan.days} {plural(healthPlan.days, 'day')}
+            {#if healthPlan.from && healthPlan.to}({formatDate(healthPlan.from, 'short')} →
+              {formatDate(healthPlan.to, 'short')}){/if}
+            · {fieldCount(healthPlan)} to write · {healthPlan.same} already the same
+            {#if healthPlan.kept.length}· {healthPlan.kept.length}
+              {plural(healthPlan.kept.length, 'value')} yours, kept{/if}
+          </p>
+          <div class="actions">
+            <button class="button" type="button" onclick={() => void confirmHealth()}>
+              Import {healthPlan.writes.length} {plural(healthPlan.writes.length, 'value')}
+            </button>
+            <button
+              class="button quiet"
+              type="button"
+              onclick={() => {
+                healthFile = null;
+                healthPlan = null;
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      {/if}
+
+      {#if healthNote}
+        <p class="meta note" role="status" data-testid="health-note">{healthNote}</p>
+      {/if}
+
       {#if note}
         <p class="meta note" role="status" data-testid="settings-note">{note}</p>
       {/if}
@@ -349,8 +457,18 @@
   .actions {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     gap: var(--s-2);
     padding-top: var(--s-1);
+  }
+
+  /* A link that is an action, so it holds the 44 px floor like the buttons. */
+  a.button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 var(--s-4);
+    text-decoration: none;
   }
 
   .button {
@@ -399,6 +517,35 @@
 
   .note {
     padding-top: var(--s-3);
+  }
+
+  /* The health file is a whole paragraph of help, so it gets its own line. */
+  .health {
+    align-items: flex-start;
+  }
+
+  .health .setting-label {
+    flex: 0 0 auto;
+  }
+
+  .health p {
+    flex-basis: 100%;
+  }
+
+  .health code {
+    font-family: var(--font-figures);
+    font-size: var(--fs-12);
+  }
+
+  .plan {
+    margin-top: var(--s-4);
+    padding: var(--s-3);
+    border: var(--bw-hair) solid var(--rule-strong);
+    background: var(--card);
+  }
+
+  .button.quiet {
+    color: var(--ink-muted);
   }
 
   /* Below 480 px the label sits above its control, as the Today rows do. */

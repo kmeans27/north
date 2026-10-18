@@ -15,6 +15,7 @@ import { createIndexedDbStore, createMemoryStore, type KeyValueStore } from './d
 import { createDayStore, type DayStore } from './days';
 import { generateDemoDays } from './demo';
 import { parseExport } from './export';
+import { mergeHealth, type HealthFile, type HealthPlan } from './health';
 import { DEFAULT_SETTINGS, loadSettings, mergeSettings, saveSettings } from './settings';
 
 export interface SessionState {
@@ -172,4 +173,19 @@ export async function importBackup(text: string): Promise<number> {
   session.day = (await days.get(session.date)) ?? null;
   session.undoCount = await days.undoCount();
   return bundle.days.length;
+}
+
+/**
+ * Import a `north.health.v1` file by hand (docs/V2.1.md §6). Only the days the
+ * file mentions are written — a day it does not mention stays the gap it was —
+ * and a value a human typed (it carries `locked`) is never overwritten. Returns
+ * the plan, so the screen can say exactly what happened.
+ */
+export async function importHealth(file: HealthFile): Promise<HealthPlan> {
+  if (!days) throw new Error('Storage is unavailable');
+  const { days: merged, plan } = mergeHealth(file, await days.all());
+  if (merged.length > 0) await days.importDays(merged);
+  session.days = await days.all();
+  session.day = (await days.get(session.date)) ?? null;
+  return plan;
 }

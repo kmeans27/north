@@ -53,7 +53,7 @@ COMPRESSIBLE = (
 # Below this, the gzip header costs more than the saving.
 GZIP_FLOOR = 512
 
-HTML_NAMES = ("index.html", "week.html", "trends.html")
+HTML_NAMES = ("index.html", "log.html", "week.html", "trends.html", "settings.html", "preview.html")
 
 
 def cache_control(request_path: str, file_path: str) -> str:

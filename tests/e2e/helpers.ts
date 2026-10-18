@@ -71,7 +71,10 @@ export async function openDashboard(page: Page, search = ''): Promise<void> {
 
 export interface SeedDay {
   date: string;
-  values: Record<string, { v: number | boolean | string | null; src: string; t: number }>;
+  values: Record<
+    string,
+    { v: number | boolean | string | null; src: string; t: number; locked?: boolean }
+  >;
   note?: string;
 }
 
@@ -144,6 +147,30 @@ export function fullLogDay(date: string, protein = 4): SeedDay {
   put('phone_total', 2.5);
   put('social_min', 30);
   return { date, values, note: 'One line about the thing I learned.' };
+}
+
+/* ─── Files a test hands to a `<input type=file>` ──────────────────────────
+   Playwright's payload wants Node's `Buffer`; the e2e runner is Node and has it
+   as a global, but the app's tsconfig is browser-only and knows no node types.
+   Declaring the one member used keeps the dependency list unchanged. */
+declare const Buffer: { from(input: string, encoding?: 'utf8'): never };
+
+/** One in-memory JSON file, in the shape `setInputFiles` wants. */
+export function jsonFile(name: string, body: unknown): {
+  name: string;
+  mimeType: string;
+  buffer: never;
+} {
+  return { name, mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(body)) };
+}
+
+/** One in-memory text file. */
+export function textFile(name: string, body: string): {
+  name: string;
+  mimeType: string;
+  buffer: never;
+} {
+  return { name, mimeType: 'application/json', buffer: Buffer.from(body) };
 }
 
 /* ─── Shared layout assertions (the Definition of Done) ──────────────────── */
