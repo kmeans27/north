@@ -1,18 +1,22 @@
 # north
 
 A local-first personal performance dashboard. One screen, twenty seconds a day.
-Static site on GitHub Pages. **No server, no account, no analytics.** Personal data lives in a
+Self-hosted static site. **No server state, no account, no analytics.** Personal data lives in a
 separate private repo; this repo contains code and demo data only.
 
 > You log roughly nine taps a day. The watch and the computer fill in the rest.
-> You get one honest number, the four pillars behind it, and one thing to fix.
+> The home screen reads at a glance; the log is for filling the gaps.
+
+**Status: v2.** v1 was a flat list of rows — a form, not a dashboard. v2 replaces the home
+screen with a categorised dashboard of charts, keeps the old list at `/log`, and adds an Apple
+Health pipeline. **[`docs/V2.md`](docs/V2.md) is the live brief; read it first.**
 
 **Why north exists.** Habit trackers track *habits*; north tracks the small,
 important parts of life that decide how well you perform — sleep, food, focus,
 attention, money. The logging has to be fast and satisfying enough that you
 actually do it, and the display has to let you see at one grasp what is going on
-and what needs doing. The basics — how each thing is logged and how it is shown —
-come first; weekly plans come later. See [`VISION.md`](VISION.md).
+and what needs doing. See [`docs/spec/vision-v1.md`](docs/spec/vision-v1.md) for what each
+metric means.
 
 ---
 
@@ -70,7 +74,7 @@ the handful of values every score is computed from (`bodyweightKg` was stuck at 
 default, so a lighter or heavier person got the wrong protein target) and a way to get your data
 out (`export.ts` was written and tested in M1 but nothing in the UI called it). The nine-step
 wizard, the presets and the per-metric target editor are not built, and that is a deliberate
-departure from `08-build-plan.md` §M5 — reported, and recorded in [`VISION.md`](VISION.md) §5.
+departure from `docs/spec/08-build-plan.md` §M5 — reported, and recorded in [`docs/spec/vision-v1.md`](docs/spec/vision-v1.md) §5.
 
 Last gate (M5): `npm run check` 0 errors / 0 warnings · 364 unit tests green · lint clean ·
 build clean · 79 e2e pass + 1 skipped · 12 server tests green.
@@ -79,7 +83,7 @@ Served by `server/serve.py` (see [Deploy](#deploy--self-hosted)); no hosted URL 
 domain at it.
 
 The build order and the acceptance criteria for every milestone are in
-[`08-build-plan.md`](08-build-plan.md). A milestone is finished only when every line of its
+[`docs/spec/08-build-plan.md`](docs/spec/08-build-plan.md). A milestone is finished only when every line of its
 acceptance list passes.
 
 ### Polish pass (after M4)
@@ -87,7 +91,7 @@ acceptance list passes.
 The owner's priority is that logging feels fast and the screen reads at a glance, so Today,
 Week and Trends were tightened before starting M5:
 
-- **Rows stack on phones.** `04-ux.md` §2 draws the label and its cells side by side in a 52 px
+- **Rows stack on phones.** `docs/spec/04-ux.md` §2 draws the label and its cells side by side in a 52 px
   row. At the 390 px viewport that is not possible without breaking the 44 × 44 tap floor: a
   six-cell choice row is 6 × 44 px plus gaps (~300 px), leaving ≈ 65 px for the label, which
   wraps every label mid-phrase. Below 480 px the label now sits **above** its control in a tight
@@ -100,7 +104,7 @@ Week and Trends were tightened before starting M5:
   `days` → `day` and `servings` → `serving` for one, so Week shows `+1 day`, never `+1 days`;
   the section counts use the same helper (`1 item`, `5 values`, `3 metrics`).
 - **Thousands are printed as thousands.** Steps stores its value in steps with the unit `k`
-  (`02-metrics.md` §3), so the raw figure printed beside a `k` read as millions — Trends showed
+  (`docs/spec/02-metrics.md` §3), so the raw figure printed beside a `k` read as millions — Trends showed
   `9,400 k`. `formatValue` and `formatCompact` now scale the `k` unit and drop a bare `.0`:
   `9.4 k`, target `7 k`.
 - **An insight card does not repeat itself.** Rule 1's canonical sentence opens with
@@ -117,7 +121,7 @@ Week and Trends were tightened before starting M5:
   sentence ("One tap per 32 g of protein. Not a diary — a count.") is the row label's `title`
   on hover, and it stays in the accessible name, so the screen reader announces
   `Protein ×32 g, 3 of 5`. Two more jargon short-names went with it: `Regular` →
-  `Regularity`, `Leaks` → `Distraction`. `02-metrics.md`, `04-ux.md`, `VISION.md` and the
+  `Regularity`, `Leaks` → `Distraction`. `docs/spec/02-metrics.md`, `docs/spec/04-ux.md`, `docs/spec/vision-v1.md` and the
   registry were all updated together.
 - **One minus glyph.** Week's comparison printed `−22` (U+2212) while Today's auto cells printed
   `-0.1 %/wk` (ASCII hyphen). `formatNumber` now uses the typographic minus, so both screens
@@ -244,21 +248,25 @@ Python standard library.
 
 ## Documents
 
-The specification is the contract. Read in this order:
+**[`docs/V2.md`](docs/V2.md) is the live brief — read it first.** It replaced the v1 list design
+with a dashboard, and it decides what gets worked on. Everything under `docs/spec/` is the v1
+outline: still canonical for metrics and scoring maths, no longer a mandate for the screens.
 
 | File | Read it for |
 |---|---|
-| [`VISION.md`](VISION.md) | Owner's direction + logging/display spec |
+| [`docs/V2.md`](docs/V2.md) | **The live brief.** Dashboard philosophy, focus order, Apple Health pipeline |
 | [`AGENTS.md`](AGENTS.md) | Operating rules for the implementing agent |
-| [`01-brief.md`](01-brief.md) | Why this exists, what it is not, success criteria |
-| [`02-metrics.md`](02-metrics.md) | **Canonical registry** — every metric, target, weight, curve |
-| [`03-scoring.md`](03-scoring.md) | Exact scoring maths, aggregation, edge cases, test tables |
-| [`04-ux.md`](04-ux.md) | Screens, widgets, keyboard map, flows, microcopy |
-| [`05-design.md`](05-design.md) | Tokens, type, layout, charts, motion, accessibility |
-| [`06-architecture.md`](06-architecture.md) | Stack, file tree, data model, storage, sync, deployment |
-| [`07-automation.md`](07-automation.md) | Apple Health, ActivityWatch, Shortcuts, ingest contract |
-| [`08-build-plan.md`](08-build-plan.md) | M0–M9 with testable acceptance criteria |
-| [`09-decisions.md`](09-decisions.md) | Locked decisions, open questions, V2 backlog, risks |
+| [`docs/spec/vision-v1.md`](docs/spec/vision-v1.md) | Owner's v1 brief — clearest per-metric description |
+| [`docs/spec/02-metrics.md`](docs/spec/02-metrics.md) | **Canonical registry** — every metric, target, weight, curve |
+| [`docs/spec/03-scoring.md`](docs/spec/03-scoring.md) | Exact scoring maths, aggregation, edge cases, test tables |
+| [`docs/spec/05-design.md`](docs/spec/05-design.md) | Tokens, type, layout, charts, motion, accessibility |
+| [`docs/spec/09-decisions.md`](docs/spec/09-decisions.md) | Locked decisions, anti-patterns, risks |
+| [`docs/spec/01-brief.md`](docs/spec/01-brief.md) | Why this exists, what it is not |
+| [`docs/spec/04-ux.md`](docs/spec/04-ux.md) | v1 screens, widgets, keyboard map |
+| [`docs/spec/06-architecture.md`](docs/spec/06-architecture.md) | Stack, data model, storage |
+| [`docs/spec/07-automation.md`](docs/spec/07-automation.md) | Ingest contract (V2 extends this for Health) |
+| [`docs/spec/08-build-plan.md`](docs/spec/08-build-plan.md) | M0–M5 as delivered; M6–M9 not planned |
+| [`docs/README.md`](docs/README.md) | Index, and what the spec is still authoritative for |
 
 ## Licence
 

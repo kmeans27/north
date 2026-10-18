@@ -1,7 +1,19 @@
 # AGENTS.md — operating rules for the implementing agent
 
+> ## ⚠️ Read [`docs/V2.md`](docs/V2.md) first.
+> It is the **live brief** and it supersedes the v1 outline. The home screen is now a
+> **categorised dashboard of charts**, not a list of rows; v1's list lives on at `/log`.
+> **The four things to focus on, in order: design, data display, logging ease, data
+> automation.** Do not spend effort on the old milestone plan in `docs/spec/08-build-plan.md`
+> (M6–M9 are not planned) and do not treat the other `docs/spec/*` files as a mandate for
+> screens — only for **metric values, scoring maths and tokens**, which stay canonical.
+
 You are building **north**, a personal performance dashboard, from the docs in this folder.
 The docs are the spec. Your job is execution, not product design.
+
+> Integrity note for a fresh context: the v1 list design is finished and shipped. v2 is a
+> deliberate re-design of the *home screen only*. Never delete v1: `/log` must keep working.
+
 
 ---
 
@@ -75,15 +87,35 @@ If a feature costs more than ~8 KB, it does not ship in V1.
 
 Otherwise decide, implement, and note the decision in your report. Prefer the simpler option.
 
-## 7. First 30 minutes
+## 7. Orientation for a fresh context
 
-1. `npm create svelte@latest north` → Skeleton project, TypeScript, minimal options.
-2. Add `@sveltejs/adapter-static`, strict `tsconfig`, Vitest, Playwright.
-3. Create `src/styles/tokens.css` from `05-design.md`; import it in the root layout.
-4. Create `src/lib/metrics/types.ts` and `registry.ts` from `02-metrics.md` — copy values exactly,
-   including weights and curves.
-5. Build the demo seed generator (`06-architecture.md` §8) so every screen has 120 days of data
-   from the first commit. Never design against an empty dashboard.
-6. Deploy the skeleton to GitHub Pages before writing any feature. Prove the pipeline early.
+The project is **built and shipped**; you are not starting from zero. Do not scaffold anything.
 
-Then start M0 in `08-build-plan.md`.
+```
+src/routes/          +layout.svelte (shell, nav, theme, keyboard)
+                     +page.svelte    the home screen — v2 dashboard
+                     log/            v1's list (the full logger; must keep working)
+                     week/  trends/  settings/
+src/lib/metrics/     types, registry (canonical values), score, aggregate, dates, resolve
+src/lib/store/       IndexedDB, days, settings, export, demo seed, session.svelte.ts (all state)
+src/lib/ui/          the widget library: CellGroup/ChoiceRow/TriState/Bins/NumberField,
+                     Row, ScoreHeader, Sparkline, HeatGrid, MetricChart, Sheet, Toast
+src/styles/          tokens.css (the only place a value may be hardcoded), base.css
+server/              serve.py (stdlib static server + ingest) and its tests
+tests/unit/          pure logic, Vitest.  tests/e2e/  user-visible behaviour, Playwright
+```
+
+Everything you display comes from `resolveMetrics(settings)` plus a pure function in
+`src/lib/`. If a figure on the dashboard cannot be traced to one of those, it is invented —
+which the iron rules forbid.
+
+### Working loop for V2
+
+1. Re-read the part of [`docs/V2.md`](docs/V2.md) that covers what you are about to build.
+2. State (5 lines max) the files you will touch and the tests you will write.
+3. Build the smallest vertical slice a human could actually read at a glance.
+4. Unit-test the pure logic; when you are unsure the tests are trustworthy, break the code to
+   watch them fail, then fix it.
+5. `npm run check && npm run lint && npm test && npm run build && npm run e2e` — all clean.
+6. Look at it. Screenshot at 320 / 390 / 1440, light and dark, and judge it as a designer.
+7. Update the README's status line, commit small, push.
