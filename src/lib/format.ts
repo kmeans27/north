@@ -34,12 +34,12 @@ export function formatHour(hour: number): string {
 }
 
 /**
- * A unit that starts with a slash hugs its number — `0/wk`, not `0 /wk`. Every
+ * A unit that multiplies or divides hugs its number — `4×32 g`, `0/wk`. Every
  * other unit takes a space: `7.4 h`, `94 %`, `9.4 k`.
  */
 export function joinUnit(text: string, unit: string): string {
   if (!unit) return text;
-  return unit.startsWith('/') ? `${text}${unit}` : `${text} ${unit}`;
+  return /^[/×]/.test(unit) ? `${text}${unit}` : `${text} ${unit}`;
 }
 
 /** Human value for a metric row. `unset` is a state, not a zero. */

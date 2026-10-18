@@ -54,6 +54,7 @@ describe('formatValue', () => {
     expect(formatValue(0, '/wk', 0)).toBe('0/wk');
     expect(formatValue(-0.1, '%/wk', 1)).toBe('−0.1 %/wk');
     expect(joinUnit('9.4', '/wk')).toBe('9.4/wk');
+    expect(joinUnit('4', '×32 g')).toBe('4×32 g');
     expect(joinUnit('7.1', 'h')).toBe('7.1 h');
     expect(joinUnit('9.4', '')).toBe('9.4');
   });

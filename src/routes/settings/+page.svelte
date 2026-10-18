@@ -3,7 +3,7 @@
      Two jobs, and no more: the handful of values every score is computed from,
      and getting your data out of the browser. No wizard, no presets, no
      per-metric target editing. */
-  import { formatHour, plural } from '$lib/format';
+  import { formatHour, formatNumber, joinUnit, plural } from '$lib/format';
   import { formatDate } from '$lib/metrics/dates';
   import { resolveMetrics } from '$lib/metrics/resolve';
   import { buildExport, download, serializeExport, toCSV } from '$lib/store/export';
@@ -129,8 +129,9 @@
       </div>
 
       <p class="meta derived" data-testid="protein-target">
-        Protein target <span class="num">{proteinTarget}</span>
-        {protein?.unit ?? ''} a day — {settings.proteinGPerKg} g/kg at {settings.bodyweightKg} kg.
+        Protein target
+        <span class="num">{joinUnit(formatNumber(proteinTarget), protein?.unit ?? '')}</span>
+        a day — {settings.proteinGPerKg} g/kg at {settings.bodyweightKg} kg.
       </p>
 
       <div class="setting">
