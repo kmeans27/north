@@ -1,7 +1,7 @@
 <script lang="ts">
   /* 05-design.md §4: min-height --row-h, hairline bottom rule, label left and a
      fixed control track right. A logged row dims its label — the cells stay
-     exactly where they were, because nothing moves under your finger (D18). */
+     exactly where they were: nothing moves under your finger (D18). */
   import type { Snippet } from 'svelte';
   import type { ResolvedMetric, Value } from '$lib/metrics/types';
 

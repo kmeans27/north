@@ -137,7 +137,7 @@ export function generateDemoDays(options?: Partial<DemoOptions>): Day[] {
     setValue('sleep_hours', sleep, autoT);
     prevSleep = sleep;
 
-    // Bedtime drifts with the length of the night, because the wake-up is fixed.
+    // Bedtime drifts with the length of the night: the wake-up is fixed.
     const bedtime = 23 * 60 + 10 + Math.round((rng() - 0.5) * 50) - Math.round((sleep - 7) * 30);
 
     const proteinDraw = rng();

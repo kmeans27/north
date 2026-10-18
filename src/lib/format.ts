@@ -26,3 +26,15 @@ export function formatCompact(value: number, unit = ''): string {
   if (unit === 'k') return `${formatNumber(value / 1000, 1)}k`;
   return formatNumber(value, Number.isInteger(value) ? 0 : 1);
 }
+
+/**
+ * A signed comparison: `+6`, `−4`, `0` (04-ux.md §5: the direction is stated in
+ * words, never left to an arrow). Uses the typographic minus the docs use.
+ */
+export function formatSigned(value: number, decimals = 0): string {
+  const factor = 10 ** decimals;
+  const rounded = Math.round(value * factor) / factor;
+  if (Math.abs(rounded) < 1 / factor / 2) return formatNumber(0, decimals);
+  const text = formatNumber(Math.abs(rounded), decimals);
+  return `${rounded > 0 ? '+' : '−'}${text}`;
+}

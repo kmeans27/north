@@ -355,6 +355,31 @@ export function metricWindowScores(
   return out;
 }
 
+/**
+ * One pillar's score on one day: the weighted mean of the daily metrics present
+ * in that pillar, normalised within the pillar. Feeds the 90-day consistency
+ * grid on Trends (04-ux.md §6); it is diagnostic, never part of a composite.
+ */
+export function pillarDayScore(
+  day: Day,
+  pillar: Pillar,
+  metrics: readonly ResolvedMetric[],
+  settings: Settings
+): number | null {
+  let numerator = 0;
+  let denominator = 0;
+  for (const metric of metrics) {
+    if (metric.pillar !== pillar || metric.cadence !== 'daily') continue;
+    const value = valueOf(day, metric.id);
+    if (value === null) continue;
+    const score = scoreMetric(metric, value, settings, { note: day.note });
+    if (score === null) continue;
+    numerator += metric.weight * score;
+    denominator += metric.weight;
+  }
+  return denominator > 0 ? numerator / denominator : null;
+}
+
 /** The lowest-scoring metric inside a pillar — the lever a weak pillar points at. */
 export function weakestMetricInPillar(
   days: readonly Day[],

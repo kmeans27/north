@@ -129,7 +129,7 @@ export function weightEma(days: readonly Day[]): EmaPoint[] {
  * or a zero reference, return `null`.
  *
  * @param points EMA points in date order; pass MORE than the current week when
- *               you have it, because the reference is the newest point that is
+ *               you have it: the reference is the newest point that is
  *               at least 14 days older than the last.
  */
 export function weightSlopePctPerWeek(points: readonly EmaPoint[]): number | null {

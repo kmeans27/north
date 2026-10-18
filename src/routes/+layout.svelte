@@ -21,17 +21,27 @@
   let { children }: { children: Snippet } = $props();
 
   /** Routes that exist. Grows milestone by milestone; a dead link is worse than none. */
-  type Route = '/';
+  type Route = '/' | '/week' | '/trends';
+  /** A route with the demo flag kept on; typed so `resolve()` accepts it. */
+  type NavTarget = Route | `${Route}?demo=1`;
 
   interface NavItem {
     href: Route;
     label: string;
   }
 
-  const NAV: NavItem[] = [{ href: '/', label: 'today' }];
+  const NAV: NavItem[] = [
+    { href: '/', label: 'today' },
+    { href: '/week', label: 'week' },
+    { href: '/trends', label: 'trends' }
+  ];
 
   /** The `G` targets that exist today. Missing ones are inert, not 404s. */
-  const LIVE_ROUTES: Partial<Record<RoutePath, Route>> = { '/': '/' };
+  const LIVE_ROUTES: Partial<Record<RoutePath, Route>> = {
+    '/': '/',
+    '/week': '/week',
+    '/trends': '/trends'
+  };
 
   /** 04-ux.md §4, as the help overlay shows it. */
   const KEY_HELP: { keys: string; action: string }[] = [
@@ -55,6 +65,11 @@
   const current = $derived(page.url.pathname.replace(base, '') || '/');
   const isActive = (href: string): boolean =>
     href === '/' ? current === '/' : current === href || current.startsWith(href + '/');
+
+  /** Navigation keeps the demo flag: leaving it would silently swap the data. */
+  function href(route: Route): NavTarget {
+    return session.demo ? `${route}?demo=1` : route;
+  }
 
   // Load on mount and on every search change (?d=, ?demo=1).
   $effect(() => {
@@ -105,7 +120,7 @@
         break;
       case 'goto': {
         const route = LIVE_ROUTES[action.route];
-        if (route) void goto(resolve(route));
+        if (route) void goto(resolve(href(route)));
         break;
       }
       case 'help':
@@ -117,6 +132,8 @@
         else if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
         break;
       case 'shiftDay': {
+        // Only the Today screen shows one day; elsewhere `[` and `]` are inert.
+        if (current !== '/') break;
         const next = addDays(session.date, action.delta);
         goToDay(next > session.today ? null : next);
         break;
@@ -150,7 +167,7 @@
 
 <header class="topbar">
   <div class="shell topbar-inner">
-    <a class="logotype wordmark" href={resolve('/')}>north</a>
+    <a class="logotype wordmark" href={resolve(href('/'))}>north</a>
 
     <div class="topbar-right">
       {#if chord}<span class="meta chord">g…</span>{/if}
@@ -160,7 +177,7 @@
           <a
             class="navlink"
             class:active={isActive(item.href)}
-            href={resolve(item.href)}
+            href={resolve(href(item.href))}
             aria-current={isActive(item.href) ? 'page' : undefined}
           >{item.label}</a
           >

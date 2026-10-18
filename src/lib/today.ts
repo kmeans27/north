@@ -1,7 +1,7 @@
 /* src/lib/today.ts — the Today screen's shape, as data (04-ux.md §2).
  *
  * Pure: it takes the day, the history and the settings, and returns the row
- * order, the controls and the score header. The order is a snapshot, because
+ * order, the controls and the score header. The order is a snapshot, since
  * "nothing re-orders while you are tapping" (D18) — the page freezes it on mount.
  */
 
@@ -16,8 +16,9 @@ import {
   weakestMetricInPillar,
   type PeriodValues
 } from './metrics/aggregate';
-import { addDays } from './metrics/dates';
+import { addDays, diffDays } from './metrics/dates';
 import { logStreak } from './metrics/derived';
+import { formatValue } from './format';
 import { MIN_N } from './insights/rules';
 import { PILLARS, PILLAR_LABEL } from './metrics/registry';
 import { scoreMetric } from './metrics/score';
@@ -51,6 +52,19 @@ export const SEVEN_DAY = 7;
 export const SPARKLINE_DAYS = 30;
 /** Longest run of `+n` cells a keyboard number key can reach (04-ux.md §4). */
 export const MAX_OPTIONS = 7;
+
+/** A past day can be read or corrected for 30 days; older is read-only (04-ux.md §1). */
+export const EDIT_WINDOW_DAYS = 30;
+
+/**
+ * Whether the viewed day accepts writes. The 30-day window is inclusive: a day
+ * exactly 30 days old can still be corrected.
+ */
+export function canEditDay(date: string | null, today: string): boolean {
+  if (!date || !today) return true;
+  const age = diffDays(date, today);
+  return age >= 0 && age <= EDIT_WINDOW_DAYS;
+}
 
 export interface TodayOptions {
   day: Day | null;
@@ -344,6 +358,18 @@ export function optionsOf(metric: ResolvedMetric): RowOption[] {
   // A counter's meaningful range is 0..target: overshoot never earns more (D7).
   const count = Math.max(1, Math.round(metric.score.target));
   return Array.from({ length: count + 1 }, (_, value) => ({ label: String(value), value }));
+}
+
+/**
+ * A value as a word: the spoken label of the matching cell (so a toggle reads
+ * `yes`/`no`, a bin reads `≤ 2h`, `3+` stays `3+`), else the plain figure.
+ */
+export function displayValue(metric: ResolvedMetric, value: Value): string {
+  if (value === null) return 'unset';
+  if (typeof value === 'boolean') return value ? 'yes' : 'no';
+  const option = optionsOf(metric).find((candidate) => candidate.value === value);
+  if (option) return option.spoken ?? option.label;
+  return formatValue(value, metric.unit, metric.decimals);
 }
 
 /** `3.5 h above target` — the stretch framing, shown as text and never as score. */

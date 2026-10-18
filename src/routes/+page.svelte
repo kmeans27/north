@@ -16,7 +16,9 @@
     TODAY_ROW_LIMIT,
     aboveTarget,
     autoValue,
+    canEditDay,
     controlFor,
+    displayValue,
     optionsOf,
     rowValue,
     scoreHeader,
@@ -93,6 +95,9 @@
   const gaps = $derived(session.today ? deviceGaps(session.days, session.today) : []);
   const gapDays = $derived(gaps.reduce((worst, gap) => Math.max(worst, gap.days), 0));
 
+  /* 04-ux.md §1: a past day can be corrected for 30 days, then it is read-only. */
+  const readOnly = $derived(session.ready && !canEditDay(session.date, session.today));
+
   const restDay = $derived(session.day?.restDay === true);
   const dayNumber = $derived(history.length > 0 && session.date
     ? diffDays(history[0]!.date, session.date) + 1
@@ -143,6 +148,7 @@
   /* ─── Writing ────────────────────────────────────────────────────────────── */
 
   function write(metric: ResolvedMetric, value: Value): void {
+    if (readOnly) return;
     void writeValue(metric.id, value);
     showToast(
       value === null
@@ -198,9 +204,10 @@
       return;
     }
     if (action.type === 'editNote') {
-      noteInput?.focus();
+      if (!readOnly) noteInput?.focus();
       return;
     }
+    if (readOnly) return;
 
     const metric = focusedMetric;
     if (!metric) return;
@@ -250,8 +257,8 @@
   $effect(() => {
     provideRowContext({
       state: () => ({
-        optionCount: focusedMetric ? optionsOf(focusedMetric).length : 0,
-        canEditNote: canEditNote(),
+        optionCount: focusedMetric && !readOnly ? optionsOf(focusedMetric).length : 0,
+        canEditNote: !readOnly && canEditNote(),
         sheetOpen: sheetFor !== null
       }),
       onAction: handleRowAction
@@ -285,6 +292,12 @@
     </span>
   </div>
 
+  {#if readOnly}
+    <p class="meta readonly" data-testid="read-only">
+      Read-only — past days can be corrected for 30 days.
+    </p>
+  {/if}
+
   <ScoreHeader {header} {tone} />
 
   <section class="block" aria-labelledby="needs-you">
@@ -298,7 +311,11 @@
       {#each shownRows as row (row.metric.id)}
         <Row metric={row.metric} value={row.value.value} logged={row.value.logged}>
           <div class="control-stack">
-            {#if controlFor(row.metric.widget) === 'triState'}
+            {#if readOnly}
+              <span class="readonly-value num" data-readonly-value
+                >{displayValue(row.metric, row.value.value)}</span
+              >
+            {:else if controlFor(row.metric.widget) === 'triState'}
               <TriState
                 metric={row.metric}
                 legendId={`row-${row.metric.id}`}
@@ -328,7 +345,7 @@
               />
             {/if}
 
-            {#if row.metric.id === 'learned' && row.value.value === true}
+            {#if !readOnly && row.metric.id === 'learned' && row.value.value === true}
               <NoteField
                 value={session.day?.note ?? ''}
                 onchange={applyNote}
@@ -406,7 +423,9 @@
     </p>
 
     <div class="sheet-control">
-      {#if controlFor(sheetMetric.widget) === 'triState'}
+      {#if readOnly}
+        <p class="meta">Read-only — past days can be corrected for 30 days.</p>
+      {:else if controlFor(sheetMetric.widget) === 'triState'}
         <TriState
           metric={sheetMetric}
           legendId={`sheet-${sheetMetric.id}`}
@@ -454,6 +473,15 @@
   .date {
     font-size: var(--fs-13);
     color: var(--ink-muted);
+  }
+
+  .readonly {
+    margin-bottom: var(--s-4);
+  }
+
+  .readonly-value {
+    font-size: var(--fs-14);
+    color: var(--ink);
   }
 
   .block {

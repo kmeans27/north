@@ -7,7 +7,7 @@
 import { resolveSpec } from './resolve';
 import type { MetricDef, Settings, Value } from './types';
 
-/** Limit `x` to `[lo, hi]`. Exported because it is the primitive in §1. */
+/** Limit `x` to `[lo, hi]`. Exported as the primitive in §1. */
 export function clamp(x: number, lo = 0, hi = 1): number {
   return Math.min(hi, Math.max(lo, x));
 }

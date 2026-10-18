@@ -7,13 +7,16 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  EDIT_WINDOW_DAYS,
   MAX_OPTIONS,
   SEVEN_DAY,
   SPARKLINE_DAYS,
   TODAY_ROW_LIMIT,
   aboveTarget,
   autoValue,
+  canEditDay,
   controlFor,
+  displayValue,
   optionsOf,
   rowValue,
   scoreAnnouncement,
@@ -517,5 +520,47 @@ describe('scoreAnnouncement (04-ux.md §12)', () => {
     expect(scoreAnnouncement(header({}))).toBe('Nothing logged yet today.');
     expect(scoreAnnouncement(header({ logged: 3 }))).toBe('Logged 3 of 14 today.');
     expect(scoreAnnouncement(header({ day: 82 }))).toBe('Today 82.');
+  });
+});
+
+describe('canEditDay (04-ux.md §1 — read-only beyond 30 days)', () => {
+  it('is inclusive at exactly thirty days old', () => {
+    expect(canEditDay('2026-10-18', '2026-10-18')).toBe(true);
+    expect(canEditDay('2026-09-18', '2026-10-18')).toBe(true); // 30 days old
+    expect(canEditDay('2026-09-17', '2026-10-18')).toBe(false); // 31 days old
+  });
+
+  it('refuses a day in the future', () => {
+    expect(canEditDay('2026-10-19', '2026-10-18')).toBe(false);
+  });
+
+  it('accepts an unknown date, so an empty view is writable', () => {
+    expect(canEditDay(null, '2026-10-18')).toBe(true);
+  });
+
+  it('exposes the window as a constant', () => {
+    expect(EDIT_WINDOW_DAYS).toBe(30);
+  });
+});
+
+describe('displayValue (04-ux.md §3 — the value reads as a word)', () => {
+  it('speaks a toggle as yes, no or unset', () => {
+    expect(displayValue(byId('creatine'), true)).toBe('yes');
+    expect(displayValue(byId('creatine'), false)).toBe('no');
+    expect(displayValue(byId('creatine'), null)).toBe('unset');
+  });
+
+  it('uses the cell label for a segmented value', () => {
+    expect(displayValue(byId('deep_blocks'), 2)).toBe('2');
+    expect(displayValue(byId('deep_blocks'), 3.5)).toBe('3+');
+  });
+
+  it('uses the bin label, never the stored midpoint', () => {
+    expect(displayValue(byId('phone_total'), 1.5)).toBe('≤ 2h');
+    expect(displayValue(byId('social_min'), 45)).toBe('30–60m');
+  });
+
+  it('falls back to the plain figure for a number field', () => {
+    expect(displayValue(byId('sleep_hours'), 7.4)).toContain('7.4');
   });
 });

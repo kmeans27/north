@@ -41,16 +41,16 @@ writing anything to storage. Demo data is in memory only and is clearly labelled
 | M1 | Data layer: IndexedDB, dates, export | **done** |
 | M2 | Scoring, aggregation, insights | **done** |
 | M3 | Today, widgets, keyboard | **done** |
-| M4 | Week, Trends | in progress |
+| M4 | Week, Trends | **done** |
 | M5 | Settings, onboarding, presets | next |
 | M6 | Sync | — |
 | M7 | Automation | — |
 | M8 | PWA, offline, print, a11y | — |
 | M9 | Release | — |
 
-Last gate (M3, commit `3f0f879`): `npm run check` 0 errors / 0 warnings ·
-296 unit tests green · lint clean · build clean · 33 e2e pass + 1 skipped.
-Budgets at M3: **JS + CSS gzipped 61.5 KB** (limit 90 KB) · **font 30.8 KB**
+Last gate (M4): `npm run check` 0 errors / 0 warnings · 353 unit tests green ·
+lint clean · build clean · 63 e2e pass + 1 skipped.
+Budgets at M4: **JS + CSS gzipped 76.8 KB** (limit 90 KB) · **font 30.8 KB**
 (limit 60 KB). Live at <https://kmeans27.github.io/north/>.
 
 The build order and the acceptance criteria for every milestone are in

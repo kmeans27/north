@@ -145,6 +145,7 @@ export function monthKey(iso: string): string {
 const DAY_MS = 86_400_000;
 
 const WEEKDAY = new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', weekday: 'long' });
+const WEEKDAY_NARROW = new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', weekday: 'narrow' });
 const DAY_MONTH = new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', day: 'numeric', month: 'long' });
 const SHORT_DATE = new Intl.DateTimeFormat('en-GB', {
   timeZone: 'UTC',
@@ -155,6 +156,11 @@ const SHORT_DATE = new Intl.DateTimeFormat('en-GB', {
 function utcDate(iso: string): Date {
   const { year, month, day } = parseISODate(iso);
   return new Date(Date.UTC(year, month - 1, day));
+}
+
+/** One-letter weekday for the day grid: `M T W T F S S` (04-ux.md §5). */
+export function weekdayNarrow(iso: string): string {
+  return WEEKDAY_NARROW.format(utcDate(iso));
 }
 
 /**
