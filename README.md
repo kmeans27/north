@@ -10,8 +10,9 @@ separate private repo; this repo contains code and demo data only.
 **Status: v2.1.** v1 was a flat list of rows — a form, not a dashboard. v2 replaced the home
 screen with a categorised dashboard of charts and kept the old list at `/log`. v2.1 is the look:
 full width, tiles sized by how much a metric matters, real colour, and a hand path for Apple
-Health data (no server, no automation). **[`docs/V2.md`](docs/V2.md) and
-[`docs/V2.1.md`](docs/V2.1.md) are the live briefs; read them first.**
+Health data (no server, no automation). `/preview` renders the same board with a finished day of
+sample data. **[`docs/V2.md`](docs/V2.md) and [`docs/V2.1.md`](docs/V2.1.md) are the live briefs;
+read them first.**
 
 **Why north exists.** Habit trackers track *habits*; north tracks the small,
 important parts of life that decide how well you perform — sleep, food, focus,
@@ -50,7 +51,7 @@ It is feature-complete. What is deliberately **not** built, and will not be:
 | Not built | Why |
 |---|---|
 | Sync, accounts, any server-side data | The app is local-first. Your data stays in the browser; changing device is a JSON export/import. |
-| Automation (Apple Health, Screen Time collectors) | Not built yet. The pipeline is designed in [`docs/V2.md`](docs/V2.md) §5; every auto metric stays hand-enterable until it lands. |
+| Automation (Apple Health, Screen Time collectors) | Not built, and not needed: Apple Health arrives **by hand** (V2.1 §6) — a `north.health.v1` file from `server/health_export.py`, dropped into Settings. Screen Time stays manual. |
 | Onboarding wizard, `gentle/standard/strict` presets | Nine steps to set nine defaults. Settings has the values that matter, and shows what they derive. |
 | Per-metric target editing | Every target lives in one registry plus an override layer; the Settings screen covers the ones that actually move. |
 | PWA, install prompts, print stylesheet | A second lifetime of caching bugs for a page you open once a day. |
@@ -71,6 +72,7 @@ to the daily loop, or a moving part that can break it.
 | M5 | Settings and data export (cut down, see below) | **done** |
 | M6–M9 | Sync, automation, PWA, release | **not planned** (see [Scope](#scope)) |
 | V2 | Dashboard home + inline logging | **done** — see below |
+| V2.1 | The look: tile grid, colour, `/preview`, Apple Health by hand | **done** — see below |
 
 ### V2 — the dashboard (see [`docs/V2.md`](docs/V2.md))
 
@@ -91,9 +93,46 @@ the meaning. The nine things you log by hand are one tap each, on the dashboard,
 
 Last gate (V2): `npm run check` 0 errors / 0 warnings · 388 unit tests green · lint clean ·
 build clean · 99 e2e pass + 1 skipped · 12 server tests green.
+
+### V2.1 — the look, and Apple Health by hand (see [`docs/V2.1.md`](docs/V2.1.md))
+
+The owner's brief was "it looks kinda bland… utilize the full width in nice graphs in differing
+sizes, more important fields should be bigger. also add a little colour." V2.1 answers it with the
+board and nothing else: the structure, the metrics and the maths are untouched.
+
+- **Tile grid, sized by weight.** One 12-column grid; a tile's span is its metric's canonical
+  weight (`02-metrics.md` §4), so the biggest charts belong to the metrics that matter most, and
+  hiding a metric in Settings hands its columns to its neighbours deterministically. The layout is
+  a pure table (`BOARD` in `src/lib/dashboard.ts`), unit-tested row by row.
+- **Four pillar hues.** `--pillar-{body,mind,attention,capital}` name the categories — body pine,
+  mind indigo, attention teal, capital plum — on the band's name, its rule and the tile's edge.
+  They are *semantic*: the hue says which part of life, the band tone still says how it is going,
+  and the word is always beside the colour. Every hue is ≥ 4.5:1 on its surface in both themes.
+- **Charts you can read.** The hero is a ring plus a 30-day area with the band rules drawn at
+  60/75/90; tiles carry 14-day bars coloured by their own day's tone with the target as a
+  hairline, or a sparkline when there is no room. All hand-written SVG on tokens.
+- **`/preview` — a finished day.** The same board from `src/lib/sample.ts`: 120 days, all 19
+  metrics, no gaps, nothing stored. Reachable at `/preview`, with `G P`, and from Settings.
+- **`learned` asks what you learned again.** Ticking it on the board opens the one-line note
+  inside the tile, which is what its score has always depended on.
+- **Apple Health by hand.** The contract is `north.health.v1` — the same JSON a future iOS app
+  would write. `server/health_export.py` (stdlib, streaming) turns Apple's 900 MB `export.xml`
+  into it; Settings → Your data → Apple Health previews the plan, then writes it locally. A
+  missing day stays a gap and a value you entered by hand is never overwritten.
+- **Two display bugs fixed on the way.** A typed number (steps) printed `4000` where it should
+  print `4 k`, because the row asked for cells it does not have; and a tile could print its unit
+  twice (`Daylight days days`). Both now have unit tests.
+
+Last gate (V2.1): `npm run check` 0 errors / 0 warnings · 428 unit tests green · lint clean ·
+build clean · 127 e2e pass + 1 skipped · 27 server tests green.
 Budget, first load (the gzipped responses the page actually requests, served by `serve.py`):
-**65.9 KB JS + CSS on the dashboard, 68.2 KB on the log** (limit 90 KB) · **font 30.0 KB**
-(limit 60 KB).
+**73.0 KB JS + CSS on the dashboard, 74.2 KB on `/preview`, 69.9 KB on the log, 58.8 KB on
+Settings** (limit 90 KB) · **font 30.0 KB** (limit 60 KB). V2.1 cost about 7 KB gzipped — the tile
+board, the three chart components and the sample — so the headroom is now 17 KB, not 24 KB. Worth
+knowing before the next feature.
+Known deviation: at 1440 × 900 the board is 1173 px tall (1250 with the sample banner) — one short
+scroll, not the zero the brief asked for. What is left is either a smaller chart or a target under
+44 px; both are refused. Reported, not hidden (`docs/V2.1.md` §3).
 
 **M5 was cut to two things**, because those were the only parts that were actually missing:
 the handful of values every score is computed from (`bodyweightKg` was stuck at the 80 kg
