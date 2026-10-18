@@ -16,9 +16,23 @@ export function formatValue(value: Value, unit = '', decimals?: number): string 
   if (typeof value === 'boolean') return value ? 'yes' : 'no';
   if (typeof value === 'number') {
     const text = formatNumber(value, decimals ?? (Number.isInteger(value) ? 0 : 1));
-    return unit ? `${text} ${unit}` : text;
+    return unit ? `${text} ${pluralUnit(value, unit)}` : text;
   }
   return value;
+}
+
+/**
+ * A count unit follows its number: `1 day`, `4 days`. The registry stores the
+ * plural (`days`, `servings`), so one drops the trailing `s`. Units that are
+ * not bare counts — `min`, `%/wk`, `×32 g` — pass through untouched.
+ */
+export function pluralUnit(value: number, unit: string): string {
+  return Math.abs(value) === 1 && /^[a-z]+s$/.test(unit) ? unit.slice(0, -1) : unit;
+}
+
+/** `1 value`, `5 values` — for the section counts in the header. */
+export function plural(count: number, noun: string): string {
+  return count === 1 ? noun : `${noun}s`;
 }
 
 /** `7.4 h`, `8.2 k` — compact figures for the automatic strip. */

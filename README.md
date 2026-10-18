@@ -48,7 +48,7 @@ writing anything to storage. Demo data is in memory only and is clearly labelled
 | M8 | PWA, offline, print, a11y | — |
 | M9 | Release | — |
 
-Last gate (M4 + Today polish): `npm run check` 0 errors / 0 warnings · 353 unit tests green ·
+Last gate (M4 + Today polish): `npm run check` 0 errors / 0 warnings · 360 unit tests green ·
 lint clean · build clean · 63 e2e pass + 1 skipped.
 Budgeted at M4: **JS + CSS gzipped 76.8 KB** (limit 90 KB) · **font 30.8 KB**
 (limit 60 KB). Live at <https://kmeans27.github.io/north/>.
@@ -71,6 +71,9 @@ Today screen was tightened before starting M5:
 - **The empty-score placeholder no longer reads as a redaction bar.** With no score yet the
   56 px em-dash looked like a solid black bar; it is now drawn at 24 px inside the same 56 px
   line box, so the number can appear without shifting the page.
+- **Count strings read correctly.** `pluralUnit` / `plural` in `src/lib/format.ts` turn
+  `days` → `day` and `servings` → `serving` for one, so Week shows `+1 day`, never `+1 days`;
+  the section counts use the same helper (`1 item`, `5 values`, `3 metrics`).
 
 ## Deploy
 

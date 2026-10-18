@@ -3,7 +3,7 @@
      insight cards above (04-ux.md §6). Every chart is hand-written SVG; a click
      or an arrow key selects a day and its value moves into the row header. */
   import { formatDate } from '$lib/metrics/dates';
-  import { formatValue } from '$lib/format';
+  import { formatValue, plural, pluralUnit } from '$lib/format';
   import { resolveMetrics } from '$lib/metrics/resolve';
   import type { MetricId } from '$lib/metrics/types';
   import { session } from '$lib/store/session.svelte';
@@ -68,15 +68,10 @@
     return `${row.metric.label} over ${span} days: ${current.value}, ${current.meta}. Use the arrow keys to read earlier days.`;
   }
 
-  function plural(count: number, unit: string): string {
-    if (count === 1) return unit.replace(/s$/, '');
-    return unit;
-  }
-
   function rateText(row: TrendRow): string {
     if (row.rate.total === 0) return '30-day hit-rate —';
     const percent = Math.round(row.rate.rate * 100);
-    const noun = plural(row.rate.total, row.rate.unit);
+    const noun = pluralUnit(row.rate.total, row.rate.unit);
     return `30-day hit-rate ${percent} % · ${row.rate.met} of ${row.rate.total} ${noun}`;
   }
 
@@ -120,7 +115,7 @@
             <h3 class="insight-title">{card.title}</h3>
             <p class="prose">{card.body}</p>
             <p class="meta insight-n" data-insight-n
-              >n = {card.n} {plural(card.n, 'days')}</p
+              >n = {card.n} {pluralUnit(card.n, 'days')}</p
             >
           </li>
         {/each}
@@ -132,7 +127,7 @@
         <SectionLabel
           id={`pillar-${group.pillar}`}
           label={group.label}
-          count={`${group.rows.length} metrics`}
+          count={`${group.rows.length} ${plural(group.rows.length, 'metric')}`}
         />
 
         <div class="consistency">

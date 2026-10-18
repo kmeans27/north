@@ -2,7 +2,7 @@
   /* `/week` — the Sunday review (04-ux.md §5). The week in progress, this week
      against last week, the pillar table and the seven day cells. */
   import { resolve } from '$app/paths';
-  import { formatSigned, formatValue } from '$lib/format';
+  import { formatSigned, formatValue, plural } from '$lib/format';
   import { addDays, formatDate, formatDateRange, startOfWeek } from '$lib/metrics/dates';
   import { resolveMetrics } from '$lib/metrics/resolve';
   import { session } from '$lib/store/session.svelte';
@@ -102,7 +102,7 @@
     </p>
 
     <section class="block" aria-labelledby="weekly">
-      <SectionLabel id="weekly" label="Weekly" count={`${model.weekly.length} metrics`} />
+      <SectionLabel id="weekly" label="Weekly" count={`${model.weekly.length} ${plural(model.weekly.length, 'metric')}`} />
 
       <ul class="weekly">
         {#each model.weekly as line (line.metric.id)}

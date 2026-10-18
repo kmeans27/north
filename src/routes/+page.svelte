@@ -3,7 +3,7 @@
      everything inside a row is live, so the header number updates with no
      animation while the list never moves under your finger. */
   import { untrack } from 'svelte';
-  import { formatValue } from '$lib/format';
+  import { formatValue, plural } from '$lib/format';
   import type { PeriodValues } from '$lib/metrics/aggregate';
   import { addDays, diffDays, formatDate, startOfWeek } from '$lib/metrics/dates';
   import { deviceGaps, sleepConsistency, weeklyValues } from '$lib/metrics/derived';
@@ -304,7 +304,7 @@
     <SectionLabel
       id="needs-you"
       label="Needs you"
-      count={`${frozen?.needsYouCount ?? 0} items`}
+      count={`${frozen?.needsYouCount ?? 0} ${plural(frozen?.needsYouCount ?? 0, 'item')}`}
     />
 
     <div class="rows" bind:this={rowsEl} onfocusin={trackFocus} onfocusout={dropFocus}>
@@ -371,7 +371,7 @@
   </section>
 
   <section class="block" aria-labelledby="automatic">
-    <SectionLabel id="automatic" label="Automatic" count={`${autoRows.length} values`} />
+    <SectionLabel id="automatic" label="Automatic" count={`${autoRows.length} ${plural(autoRows.length, 'value')}`} />
     {#if autoRows.length === 0}
       <p class="prose">Nothing arrived from a device yet.</p>
     {:else}
