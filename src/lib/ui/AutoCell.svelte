@@ -16,7 +16,9 @@
 
   const display = $derived(
     typeof value === 'number'
-      ? `${formatCompact(value, metric.unit)}${metric.unit && metric.unit !== 'k' ? ` ${pluralUnit(value, metric.unit)}` : ''}`
+      ? metric.unit === 'k'
+        ? formatValue(value, 'k')
+        : `${formatCompact(value, metric.unit)}${metric.unit ? ` ${pluralUnit(value, metric.unit)}` : ''}`
       : formatValue(value, metric.unit, metric.decimals)
   );
 

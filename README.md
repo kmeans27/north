@@ -48,7 +48,7 @@ writing anything to storage. Demo data is in memory only and is clearly labelled
 | M8 | PWA, offline, print, a11y | — |
 | M9 | Release | — |
 
-Last gate (M4 + Today polish): `npm run check` 0 errors / 0 warnings · 360 unit tests green ·
+Last gate (M4 + Today polish): `npm run check` 0 errors / 0 warnings · 361 unit tests green ·
 lint clean · build clean · 63 e2e pass + 1 skipped.
 Budgeted at M4: **JS + CSS gzipped 76.8 KB** (limit 90 KB) · **font 30.8 KB**
 (limit 60 KB). Live at <https://kmeans27.github.io/north/>.
@@ -57,10 +57,10 @@ The build order and the acceptance criteria for every milestone are in
 [`08-build-plan.md`](08-build-plan.md). A milestone is finished only when every line of its
 acceptance list passes.
 
-### Today polish pass (after M4)
+### Polish pass (after M4)
 
-The owner's priority is that logging feels fast and the screen reads at a glance, so the
-Today screen was tightened before starting M5:
+The owner's priority is that logging feels fast and the screen reads at a glance, so Today,
+Week and Trends were tightened before starting M5:
 
 - **Rows stack on phones.** `04-ux.md` §2 draws the label and its cells side by side in a 52 px
   row. At the 390 px viewport that is not possible without breaking the 44 × 44 tap floor: a
@@ -74,6 +74,14 @@ Today screen was tightened before starting M5:
 - **Count strings read correctly.** `pluralUnit` / `plural` in `src/lib/format.ts` turn
   `days` → `day` and `servings` → `serving` for one, so Week shows `+1 day`, never `+1 days`;
   the section counts use the same helper (`1 item`, `5 values`, `3 metrics`).
+- **Thousands are printed as thousands.** Steps stores its value in steps with the unit `k`
+  (`02-metrics.md` §3), so the raw figure printed beside a `k` read as millions — Trends showed
+  `9,400 k`. `formatValue` and `formatCompact` now scale the `k` unit and drop a bare `.0`:
+  `9.4 k`, target `7 k`.
+- **An insight card does not repeat itself.** Rule 1's canonical sentence opens with
+  `Weakest link: …` and rule 3's ends with `(n = 98 days. …)`, so the card heading (rule 1) and
+  the sample-size footer (rule 3) are rendered only when the sentence does not already carry
+  them. The card copy itself is unchanged.
 
 ## Deploy
 

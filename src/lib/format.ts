@@ -10,11 +10,23 @@ export function formatNumber(value: number, decimals = 0): string {
   });
 }
 
+/**
+ * The registry stores `k` as the unit of a value measured in thousands
+ * (`02-metrics.md` §3, steps). Printing the raw count beside a `k` reads as
+ * millions — `9,400 k` — so the value is scaled and a bare `.0` is dropped:
+ * `9.4`, `7`, `2.5`.
+ */
+function inThousands(value: number): string {
+  const text = formatNumber(value / 1000, 1);
+  return text.endsWith('.0') ? text.slice(0, -2) : text;
+}
+
 /** Human value for a metric row. `unset` is a state, not a zero. */
 export function formatValue(value: Value, unit = '', decimals?: number): string {
   if (value === null || value === undefined) return 'unset';
   if (typeof value === 'boolean') return value ? 'yes' : 'no';
   if (typeof value === 'number') {
+    if (unit === 'k') return `${inThousands(value)} k`;
     const text = formatNumber(value, decimals ?? (Number.isInteger(value) ? 0 : 1));
     return unit ? `${text} ${pluralUnit(value, unit)}` : text;
   }
@@ -37,7 +49,7 @@ export function plural(count: number, noun: string): string {
 
 /** `7.4 h`, `8.2 k` — compact figures for the automatic strip. */
 export function formatCompact(value: number, unit = ''): string {
-  if (unit === 'k') return `${formatNumber(value / 1000, 1)}k`;
+  if (unit === 'k') return `${inThousands(value)}k`;
   return formatNumber(value, Number.isInteger(value) ? 0 : 1);
 }
 

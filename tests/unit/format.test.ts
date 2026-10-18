@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatValue, plural, pluralUnit } from '../../src/lib/format';
+import { formatCompact, formatValue, plural, pluralUnit } from '../../src/lib/format';
 
 /*
  * Count nouns follow their number (04-ux.md §10). The registry stores the
@@ -39,7 +39,21 @@ describe('formatValue', () => {
   it('leaves the other units as written in the registry', () => {
     expect(formatValue(7.4, 'h', 1)).toBe('7.4 h');
     expect(formatValue(2, 'min', 0)).toBe('2 min');
-    expect(formatValue(9.1, 'k', 1)).toBe('9.1 k');
+    expect(formatValue(94, '%', 0)).toBe('94 %');
+  });
+
+  /*
+   * `k` means the value is measured in thousands (02-metrics.md §3, steps), so
+   * it must be scaled — `9,400 k` would read as 9.4 million — and a bare `.0`
+   * is dropped so a round target reads `7 k`, not `7.0 k`.
+   */
+  it('prints a value measured in thousands as thousands', () => {
+    expect(formatValue(9400, 'k', 0)).toBe('9.4 k');
+    expect(formatValue(7000, 'k', 0)).toBe('7 k');
+    expect(formatValue(2500, 'k')).toBe('2.5 k');
+    expect(formatValue(500, 'k')).toBe('0.5 k');
+    expect(formatCompact(9400, 'k')).toBe('9.4k');
+    expect(formatCompact(7000, 'k')).toBe('7k');
   });
 });
 

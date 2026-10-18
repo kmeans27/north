@@ -108,15 +108,19 @@
     </div>
 
     <section class="block" aria-labelledby="insights">
-      <SectionLabel id="insights" label="Insights" count={`${model.insights.length} cards`} />
+      <SectionLabel id="insights" label="Insights" count={`${model.insights.length} ${plural(model.insights.length, 'card')}`} />
       <ul class="insights">
         {#each model.insights as card, position (card.rule + card.title + position)}
           <li class="insight" data-rule={card.rule}>
-            <h3 class="insight-title">{card.title}</h3>
+            {#if card.rule !== 0 && !card.body.toLowerCase().startsWith(card.title.toLowerCase())}
+              <h3 class="insight-title">{card.title}</h3>
+            {/if}
             <p class="prose">{card.body}</p>
-            <p class="meta insight-n" data-insight-n
-              >n = {card.n} {pluralUnit(card.n, 'days')}</p
-            >
+            {#if !card.body.includes(`n = ${card.n}`)}
+              <p class="meta insight-n" data-insight-n
+                >n = {card.n} {pluralUnit(card.n, 'days')}</p
+              >
+            {/if}
           </li>
         {/each}
       </ul>

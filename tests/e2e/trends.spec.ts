@@ -62,10 +62,17 @@ test('5. every insight card shows its sample size, and no copy claims causation'
 }) => {
   await openTrends(page);
 
-  const cards = page.locator('[data-insight-n]');
+  // Every card states its sample size — as a footer, or inside the sentence
+  // when the rule's copy already carries it (rule 3).
+  const cards = page.locator('[data-rule]');
   const count = await cards.count();
   expect(count).toBeGreaterThan(0);
   for (const text of await cards.allTextContents()) {
+    expect(text).toMatch(/n = \d+ days?/);
+  }
+
+  const footers = page.locator('[data-insight-n]');
+  for (const text of await footers.allTextContents()) {
     expect(text.trim()).toMatch(/^n = \d+/);
   }
 
