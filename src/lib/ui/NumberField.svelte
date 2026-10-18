@@ -2,10 +2,21 @@
   /* 05-design.md §4: − / + 44 px buttons with a 1 px outline, the value in
      figures between them, tap the value to type (04-ux.md §3). */
   import { formatValue } from '$lib/format';
-  import type { ResolvedMetric } from '$lib/metrics/types';
+
+  /**
+   * The only three fields the control reads. A `ResolvedMetric` satisfies this
+   * structurally, so the Today rows are unchanged; a plain setting such as
+   * bodyweight can use the same field without pretending to be a metric.
+   */
+  interface FieldSpec {
+    label: string;
+    step?: number;
+    decimals?: number;
+    unit?: string;
+  }
 
   interface Props {
-    metric: ResolvedMetric;
+    metric: FieldSpec;
     value: number | null;
     onchange: (value: number | null) => void;
     /** An optional line under the field, e.g. "1.0 h above target". */

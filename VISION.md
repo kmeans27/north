@@ -120,3 +120,14 @@ The same registry drives the display, so logging and display can never drift.
    investment should be the **Today log + display polish**, not weekly plans.
    M4 is already written; it lands as a checkpoint, then the focus shifts back
    to the daily log.
+3. **M5 is cut, and the roadmap stops there.** The owner: *"you think too big…
+   it's perfect for personal use… it should be very simple but effective."* M5
+   therefore ships only the values every score is derived from (bodyweight,
+   protein per kg, weight goal, day cutoff, week start, theme) plus export and
+   import. The nine-step onboarding wizard, the `gentle/standard/strict` presets,
+   per-metric target editing, density and delete-everything are **not built**.
+   M6 (sync), M7 (automation), M8 (PWA/print) and M9 (release) are **not
+   planned**: each adds a moving part to a daily loop that has to stay the
+   fastest thing in the app. See `README.md` → Scope.
+4. **Nothing is logged for you.** Every auto-metric keeps a manual entry path, so
+   the dashboard is never wrong about a day you did not feed it.

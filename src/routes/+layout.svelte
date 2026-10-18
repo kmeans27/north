@@ -21,7 +21,7 @@
   let { children }: { children: Snippet } = $props();
 
   /** Routes that exist. Grows milestone by milestone; a dead link is worse than none. */
-  type Route = '/' | '/week' | '/trends';
+  type Route = '/' | '/week' | '/trends' | '/settings';
   /** A route with the demo flag kept on; typed so `resolve()` accepts it. */
   type NavTarget = Route | `${Route}?demo=1`;
 
@@ -33,14 +33,16 @@
   const NAV: NavItem[] = [
     { href: '/', label: 'today' },
     { href: '/week', label: 'week' },
-    { href: '/trends', label: 'trends' }
+    { href: '/trends', label: 'trends' },
+    { href: '/settings', label: 'set' }
   ];
 
   /** The `G` targets that exist today. Missing ones are inert, not 404s. */
   const LIVE_ROUTES: Partial<Record<RoutePath, Route>> = {
     '/': '/',
     '/week': '/week',
-    '/trends': '/trends'
+    '/trends': '/trends',
+    '/settings': '/settings'
   };
 
   /** 04-ux.md §4, as the help overlay shows it. */
@@ -320,8 +322,14 @@
   }
 
   @media (max-width: 480px) {
+    /* Four links plus the wordmark have to fit in 280 px at a 320 px viewport.
+       The 44 px tap floor on every link is non-negotiable, so the gaps give. */
+    .topbar-inner {
+      gap: var(--s-3);
+    }
+
     .nav {
-      gap: var(--s-4);
+      gap: var(--s-3);
     }
   }
 </style>

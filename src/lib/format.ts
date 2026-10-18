@@ -28,6 +28,11 @@ function inThousands(value: number): string {
   return text.endsWith('.0') ? text.slice(0, -2) : text;
 }
 
+/** `4` → `04:00`, for the one place a bare hour is shown. */
+export function formatHour(hour: number): string {
+  return `${String(Math.trunc(hour)).padStart(2, '0')}:00`;
+}
+
 /**
  * A unit that starts with a slash hugs its number — `0/wk`, not `0 /wk`. Every
  * other unit takes a space: `7.4 h`, `94 %`, `9.4 k`.

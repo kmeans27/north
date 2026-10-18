@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { formatCompact, formatNumber, formatValue, joinUnit, plural, pluralUnit } from '../../src/lib/format';
+import {
+  formatCompact,
+  formatHour,
+  formatNumber,
+  formatValue,
+  joinUnit,
+  plural,
+  pluralUnit
+} from '../../src/lib/format';
 
 /*
  * Count nouns follow their number (04-ux.md §10). The registry stores the
@@ -54,6 +62,12 @@ describe('formatValue', () => {
     expect(formatNumber(-4)).toBe('−4');
     expect(formatValue(-0.8, 'kg', 1)).toBe('−0.8 kg');
     expect(formatNumber(-1234)).toBe('−1,234');
+  });
+
+  it('prints a bare hour as a time', () => {
+    expect(formatHour(4)).toBe('04:00');
+    expect(formatHour(0)).toBe('00:00');
+    expect(formatHour(21)).toBe('21:00');
   });
 
   /*

@@ -34,6 +34,25 @@ uv run server/serve.py  # serve build/ at http://127.0.0.1:8080
 The demo seed is deterministic: open `/?demo=1` to see 120 days of plausible history without
 writing anything to storage. Demo data is in memory only and is clearly labelled.
 
+## Scope
+
+north is a personal tool, not a product. The owner's brief: **one view that shows how your
+private life is actually going** — business-intelligence for one person, simple but effective.
+
+It is feature-complete. What is deliberately **not** built, and will not be:
+
+| Not built | Why |
+|---|---|
+| Sync, accounts, any server-side data | The app is local-first. Your data stays in the browser; changing device is a JSON export/import. |
+| Automation (Apple Health, Screen Time collectors) | A whole ingest pipeline for two auto-metrics. The auto strip already has a hand-entry path. |
+| Onboarding wizard, `gentle/standard/strict` presets | Nine steps to set nine defaults. Settings has the values that matter, and shows what they derive. |
+| Per-metric target editing | Every target lives in one registry plus an override layer; the Settings screen covers the ones that actually move. |
+| PWA, install prompts, print stylesheet | A second lifetime of caching bugs for a page you open once a day. |
+| More screens | Three is already one more than the brief asked for. |
+
+The line is: **logging must stay the fastest thing in the app.** Everything above would add a step
+to the daily loop, or a moving part that can break it.
+
 ## Build status
 
 | Milestone | Scope | Status |
@@ -43,14 +62,18 @@ writing anything to storage. Demo data is in memory only and is clearly labelled
 | M2 | Scoring, aggregation, insights | **done** |
 | M3 | Today, widgets, keyboard | **done** |
 | M4 | Week, Trends | **done** |
-| M5 | Settings, onboarding, presets | next |
-| M6 | Sync | — |
-| M7 | Automation | — |
-| M8 | PWA, offline, print, a11y | — |
-| M9 | Release | — |
+| M5 | Settings and data export (cut down, see below) | **done** |
+| M6–M9 | Sync, automation, PWA, release | **not planned** (see [Scope](#scope)) |
 
-Last gate (M4 + polish): `npm run check` 0 errors / 0 warnings · 363 unit tests green ·
-lint clean · build clean · 63 e2e pass + 1 skipped · 12 server tests green.
+**M5 was cut to two things**, because those were the only parts that were actually missing:
+the handful of values every score is computed from (`bodyweightKg` was stuck at the 80 kg
+default, so a lighter or heavier person got the wrong protein target) and a way to get your data
+out (`export.ts` was written and tested in M1 but nothing in the UI called it). The nine-step
+wizard, the presets and the per-metric target editor are not built, and that is a deliberate
+departure from `08-build-plan.md` §M5 — reported, and recorded in [`VISION.md`](VISION.md) §5.
+
+Last gate (M5): `npm run check` 0 errors / 0 warnings · 364 unit tests green · lint clean ·
+build clean · 79 e2e pass + 1 skipped · 12 server tests green.
 Budgeted at M4: **JS + CSS gzipped 76.8 KB** (limit 90 KB) · **font 30.8 KB** (limit 60 KB).
 Served by `server/serve.py` (see [Deploy](#deploy--self-hosted)); no hosted URL until you point a
 domain at it.
