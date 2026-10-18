@@ -88,7 +88,7 @@ the meaning. The nine things you log by hand are one tap each, on the dashboard,
 - **The maths did not move.** `src/lib/dashboard.ts` is pure and unit-tested; every figure in it
   comes from `aggregate.ts` or the registry.
 
-Last gate (V2): `npm run check` 0 errors / 0 warnings · 380 unit tests green · lint clean ·
+Last gate (V2): `npm run check` 0 errors / 0 warnings · 388 unit tests green · lint clean ·
 build clean · 99 e2e pass + 1 skipped · 12 server tests green.
 Budget, first load (the gzipped responses the page actually requests, served by `serve.py`):
 **65.9 KB JS + CSS on the dashboard, 68.2 KB on the log** (limit 90 KB) · **font 30.0 KB**
