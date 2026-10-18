@@ -1,7 +1,8 @@
 import adapter from '@sveltejs/adapter-static';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 
-/** GitHub Pages serves the app from a sub-path; CI sets BASE_PATH=/north. */
+/** Self-hosted: the server serves the site at the root, so `base` is empty.
+    Set BASE_PATH to deploy under a sub-path instead. */
 const base = process.env.BASE_PATH ?? '';
 
 /** @type {import('@sveltejs/kit').Config} */

@@ -8,6 +8,8 @@ dist
 test-results
 playwright-report
 coverage
+__pycache__
+*.pyc
 .DS_Store
 *.local
 .env

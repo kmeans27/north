@@ -106,13 +106,15 @@ The same registry drives the display, so logging and display can never drift.
 
 ---
 
-## 5. Open decisions (do not act without the owner)
+## 5. Decisions taken
 
-1. **Stack: npm/SvelteKit vs uv/Python.** The spec (`06-architecture.md`) and
-   four shipped milestones are SvelteKit + TypeScript with zero runtime
-   dependencies, deployed statically. The owner leans toward uv + self-hosted
-   Python. Recorded here; the current stack keeps shipping until the owner
-   decides. A Python rewrite would discard M0–M4 and the ≤ 90 KB budget story.
+1. **Stack: npm/SvelteKit + a self-hosted Python server.** Decided. The app stays
+   SvelteKit + TypeScript with zero runtime dependencies and a prerendered static
+   build; the *hosting* is now a standard-library Python `uv` script
+   (`server/serve.py`) on the owner's own machine behind a TLS reverse proxy,
+   rather than GitHub Pages. No GitHub Pages, no `github.io` URL. This keeps the
+   ≤ 90 KB budget story and the whole test suite, and the Python side stays small
+   enough to read in one sitting.
 2. **Milestone order.** The build plan puts Week/Trends (M4) before Settings
    (M5). The owner's direction is "basics and display first," so the next large
    investment should be the **Today log + display polish**, not weekly plans.

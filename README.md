@@ -28,6 +28,7 @@ npm run check        # svelte-check, zero errors and zero warnings
 npm test             # Vitest unit suite
 npm run e2e          # Playwright (builds and previews first)
 npm run build        # static output in build/
+uv run server/serve.py  # serve build/ at http://127.0.0.1:8080
 ```
 
 The demo seed is deterministic: open `/?demo=1` to see 120 days of plausible history without
@@ -48,10 +49,11 @@ writing anything to storage. Demo data is in memory only and is clearly labelled
 | M8 | PWA, offline, print, a11y | — |
 | M9 | Release | — |
 
-Last gate (M4 + Today polish): `npm run check` 0 errors / 0 warnings · 361 unit tests green ·
-lint clean · build clean · 63 e2e pass + 1 skipped.
-Budgeted at M4: **JS + CSS gzipped 76.8 KB** (limit 90 KB) · **font 30.8 KB**
-(limit 60 KB). Live at <https://kmeans27.github.io/north/>.
+Last gate (M4 + polish): `npm run check` 0 errors / 0 warnings · 361 unit tests green ·
+lint clean · build clean · 63 e2e pass + 1 skipped · 12 server tests green.
+Budgeted at M4: **JS + CSS gzipped 76.8 KB** (limit 90 KB) · **font 30.8 KB** (limit 60 KB).
+Served by `server/serve.py` (see [Deploy](#deploy--self-hosted)); no hosted URL until you point a
+domain at it.
 
 The build order and the acceptance criteria for every milestone are in
 [`08-build-plan.md`](08-build-plan.md). A milestone is finished only when every line of its
@@ -85,41 +87,57 @@ Week and Trends were tightened before starting M5:
 - **The auto-cell sheet labels its score.** The sheet showed a bare `80 of 100`; it now reads
   `score 80 of 100` next to `source: watch`.
 
-## Deploy
+## Deploy — self-hosted
 
-> **Status:** GitHub Actions is currently blocked on this account
-> ("your account is locked due to a billing issue"), so the `deploy` workflow
-> cannot run. Pages is updated by pushing the built site to the `gh-pages`
-> branch by hand. Fix billing to restore CI.
-
-The `deploy` workflow is meant to run lint, type-check, unit tests and the
-static build on every push to `main`, then publish `build/` to GitHub Pages with
-`BASE_PATH=/north`.
+The site is a prerendered static bundle served from a real server, not GitHub Pages.
 
 ```bash
-gh repo create north --public --source=. --push
-gh api -X POST repos/{owner}/north/pages -f build_type=workflow
+npm run build                    # static output in build/, served from the root
+uv run server/serve.py --port 8080
 ```
 
-Locally, reproduce the deployed path with:
+`server/serve.py` is a standard-library-only `uv` script (no environment to
+create, no packages to install). It exists because a stock file server is not
+enough: `/week` has to resolve to `week.html`, `.woff2` and `.webmanifest` need
+real MIME types, hashed assets must be immutable while HTML must revalidate, and
+the payload has to be gzipped to stay inside the performance budget.
 
-```bash
-BASE_PATH=/north npm run build && npm run preview
+| Flag | Default | Meaning |
+|---|---|---|
+| `--host` | `127.0.0.1` | Interface. Use `0.0.0.0` to reach it from the LAN. |
+| `--port` | `8080` | Port. |
+| `--root` | `build/` | Directory to serve. |
+| `/healthz` | — | Returns `200 ok`; for a process supervisor. |
+
+Put a TLS reverse proxy in front for a public address. With Caddy, one line is
+the whole configuration (Caddy handles the certificate and compression):
+
+```caddyfile
+north.example.com {
+    reverse_proxy 127.0.0.1:8080
+}
 ```
 
-Manual publish while Actions is blocked:
+`/fonts` and `/_app` are absolute paths, so the site must be served from the root
+of its domain. To serve it under a sub-path instead, build with `BASE_PATH`:
 
 ```bash
 BASE_PATH=/north npm run build
-export GIT_INDEX_FILE=/tmp/index.ghp && rm -f "$GIT_INDEX_FILE"
-git --work-tree=build add -A -f .
-tree=$(git write-tree)
-parent=$(git rev-parse gh-pages)
-commit=$(git commit-tree "$tree" -p "$parent" -m "deploy: publish build")
-git update-ref refs/heads/gh-pages "$commit"
-unset GIT_INDEX_FILE
-git push origin gh-pages --force
 ```
+
+Tests for the server (stdlib `unittest`, also run in CI):
+
+```bash
+uv run python -m unittest discover -s server
+```
+
+CI runs lint, `svelte-check`, the unit suite, the build and the server tests on
+every push to `main` (`.github/workflows/ci.yml`). It does not publish anything —
+deployment is yours.
+
+> **Note:** GitHub Actions is currently locked on this account ("your account is
+> locked due to a billing issue"), so CI cannot run until billing is fixed. The
+> self-hosted server does not depend on it.
 
 ## Privacy model
 
@@ -146,13 +164,11 @@ phone, Lighthouse ≥ 95 / 100 / 100.
 ## Stack
 
 SvelteKit 2 · Svelte 5 (runes) · TypeScript strict (`noUncheckedIndexedAccess`) · `adapter-static` ·
-plain CSS custom properties · hand-written SVG · Vitest · Playwright · GitHub Pages.
+plain CSS custom properties · hand-written SVG · Vitest · Playwright · a standard-library Python
+static server (`uv`) · self-hosted.
 
-Runtime dependencies: none. Every package is a devDependency.
-
-> **Open question (owner).** The owner prefers **uv + self-hosted Python** over
-> npm + GitHub Pages. Not decided. The current stack keeps shipping until then;
-> recorded in [`VISION.md`](VISION.md) §5.
+Runtime dependencies: none. Every npm package is a devDependency, and the server uses only the
+Python standard library.
 
 ## Documents
 
