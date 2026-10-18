@@ -20,7 +20,8 @@ test('renders the page in a 620 px column under a 56 px top bar, with no shadows
   await expect(shell).toBeVisible();
   const box = await shell.boundingBox();
   expect(box, 'measure').not.toBeNull();
-  expect(box!.width).toBeLessThanOrEqual(620);
+  // docs/V2.md §6: the dashboard reads across the width; the shell caps it.
+  expect(box!.width).toBeLessThanOrEqual(1040);
   expect(box!.width).toBeGreaterThan(0);
 
   const header = await page.locator('.topbar').boundingBox();
@@ -82,13 +83,24 @@ test('a fresh install reports no device gap', async ({ page }) => {
   await expect(page.locator('.banner')).toHaveCount(0);
 });
 
-test('holds a 620 px column at 1440 px and never overflows at 320 px', async ({ page }) => {
+test('holds 620 px on the log and 1040 px on the dashboard, and never overflows at 320 px', async ({
+  page
+}) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto('/?demo=1');
 
+  // v1's measure is unchanged: the log stays a 620 px column.
+  await page.goto('/log?demo=1');
   const column = await page.locator('main .shell').boundingBox();
   expect(column!.width).toBe(620);
   expect(Math.round(column!.x)).toBe(410); // centred in 1440
+
+  // v2's dashboard uses the width, and the top bar follows it.
+  await page.goto('/?demo=1');
+  const wide = await page.locator('main .shell').boundingBox();
+  expect(wide!.width).toBe(1040);
+  expect(Math.round(wide!.x)).toBe(200);
+  const bar = await page.locator('.topbar .shell').boundingBox();
+  expect(bar!.width).toBe(1040);
 
   const overflow = async (): Promise<boolean> =>
     page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);

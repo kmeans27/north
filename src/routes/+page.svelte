@@ -1,65 +1,49 @@
 <script lang="ts">
-  /* `/` — Today (04-ux.md §2). The row order is frozen once per visit (D18);
-     everything inside a row is live, so the header number updates with no
-     animation while the list never moves under your finger. */
+  /* `/` — the v2 dashboard (docs/V2.md §6). The v1 list lives at `/log`; this
+     screen is read-first: the hero carries the day's composite over 30 days, and
+     every panel is one part of life with its own chart. The nine things you log
+     by hand are still one tap each, right where you read them.
+
+     The panel order is decided on the 28-day figure and frozen once per visit
+     (D18): nothing re-orders under your finger while you are logging. */
   import { untrack } from 'svelte';
-  import { formatValue, plural } from '$lib/format';
-  import type { PeriodValues } from '$lib/metrics/aggregate';
-  import { addDays, diffDays, formatDate, startOfWeek } from '$lib/metrics/dates';
-  import { deviceGaps, sleepConsistency, weeklyValues } from '$lib/metrics/derived';
-  import { resolveMetrics } from '$lib/metrics/resolve';
-  import type { MetricId, ResolvedMetric, Source, Value } from '$lib/metrics/types';
-  import { provideRowContext, type KeyAction } from '$lib/keyboard';
-  import { demoFingerprint } from '$lib/store/demo';
-  import { session, setNote, writeValue } from '$lib/store/session.svelte';
   import {
-    TODAY_ROW_LIMIT,
-    aboveTarget,
-    autoValue,
+    dashboard,
+    panelOrder,
+    type DashboardOptions,
+    type PanelMetric
+  } from '$lib/dashboard';
+  import { formatSigned, formatValue } from '$lib/format';
+  import { addDays, diffDays, formatDate, startOfWeek } from '$lib/metrics/dates';
+  import { deviceGaps, weeklyValues } from '$lib/metrics/derived';
+  import { resolveMetrics } from '$lib/metrics/resolve';
+  import { band } from '$lib/metrics/score';
+  import type { Pillar, ResolvedMetric, Value } from '$lib/metrics/types';
+  import { demoFingerprint } from '$lib/store/demo';
+  import { session, writeValue } from '$lib/store/session.svelte';
+  import {
     canEditDay,
-    controlFor,
-    displayValue,
-    optionsOf,
-    rowValue,
+    scoreAnnouncement,
     scoreHeader,
     scoreTone,
-    todayOrder,
-    weakestLink,
-    type OrderedRows,
-    type TodayOptions
+    weakestLink
   } from '$lib/today';
-  import AutoCell from '$lib/ui/AutoCell.svelte';
+  import AreaChart from '$lib/ui/AreaChart.svelte';
   import Banner from '$lib/ui/Banner.svelte';
+  import Bars from '$lib/ui/Bars.svelte';
   import Bins from '$lib/ui/Bins.svelte';
   import ChoiceRow from '$lib/ui/ChoiceRow.svelte';
-  import NoteField from '$lib/ui/NoteField.svelte';
-  import NumberField from '$lib/ui/NumberField.svelte';
-  import Row from '$lib/ui/Row.svelte';
-  import ScoreHeader from '$lib/ui/ScoreHeader.svelte';
-  import SectionLabel from '$lib/ui/SectionLabel.svelte';
   import Segmented from '$lib/ui/Segmented.svelte';
-  import Sheet from '$lib/ui/Sheet.svelte';
+  import Sparkline from '$lib/ui/Sparkline.svelte';
   import TriState from '$lib/ui/TriState.svelte';
   import { showToast } from '$lib/ui/toast.svelte';
-
-  const SOURCE_LABEL: Record<Source, string> = {
-    manual: 'you',
-    health: 'watch',
-    collector: 'this computer',
-    derived: 'computed'
-  };
-
-  let rowsEl = $state<HTMLElement | null>(null);
-  let noteInput = $state<HTMLInputElement | null>(null);
-  let focusedId = $state<MetricId | null>(null);
-  let sheetFor = $state<MetricId | null>(null);
-  let expanded = $state(false);
 
   /* ─── The day's context ──────────────────────────────────────────────────── */
 
   const metrics = $derived(resolveMetrics(session.settings));
-  const metricById = $derived(new Map(metrics.map((metric) => [metric.id, metric])));
-  const history = $derived(session.days.filter((day) => !session.date || day.date <= session.date));
+  const history = $derived(
+    session.days.filter((day) => !session.date || day.date <= session.date)
+  );
 
   const weekDays = $derived.by(() => {
     if (!session.date) return [];
@@ -70,27 +54,23 @@
 
   const weekly = $derived(weeklyValues({ week: weekDays, history }));
 
-  const derivedValues = $derived.by(() => {
-    const out: PeriodValues = {};
-    const consistency = sleepConsistency(history);
-    if (consistency.value !== null) out.sleep_consistency = consistency.value;
-    return out;
-  });
-
-  const todayOptions = $derived<TodayOptions>({
+  const options = $derived<DashboardOptions>({
     day: session.day,
     days: history,
     metrics,
     settings: session.settings,
-    weekly,
-    derived: derivedValues
+    weekly
   });
 
-  const header = $derived(scoreHeader(todayOptions));
-  const tone = $derived(
-    header.day === null ? 'muted' : scoreTone(header.day, header.recent)
+  const model = $derived(dashboard(options));
+  const hero = $derived(scoreHeader(options));
+
+  const tone = $derived(hero.day === null ? 'muted' : scoreTone(hero.day, hero.recent));
+  const bandWord = $derived(hero.day === null ? null : band(hero.day));
+  const delta = $derived(
+    hero.day !== null && hero.sevenDay !== null ? hero.day - hero.sevenDay : null
   );
-  const link = $derived(weakestLink(todayOptions));
+  const link = $derived(weakestLink(options));
 
   const gaps = $derived(session.today ? deviceGaps(session.days, session.today) : []);
   const gapDays = $derived(gaps.reduce((worst, gap) => Math.max(worst, gap.days), 0));
@@ -98,52 +78,31 @@
   /* 04-ux.md §1: a past day can be corrected for 30 days, then it is read-only. */
   const readOnly = $derived(session.ready && !canEditDay(session.date, session.today));
 
-  const restDay = $derived(session.day?.restDay === true);
-  const dayNumber = $derived(history.length > 0 && session.date
-    ? diffDays(history[0]!.date, session.date) + 1
-    : 0);
+  const dayNumber = $derived(
+    history.length > 0 && session.date ? diffDays(history[0]!.date, session.date) + 1 : 0
+  );
   const fingerprint = $derived(session.demo ? demoFingerprint(session.days) : '');
 
-  /* ─── The frozen order (D18) ─────────────────────────────────────────────── */
+  /* ─── The frozen panel order (D18) ───────────────────────────────────────── */
 
-  let frozen = $state<OrderedRows | null>(null);
-  let frozenKey = '';
+  let order = $state<Pillar[] | null>(null);
+  let orderKey = '';
 
   $effect(() => {
     const key = session.ready ? session.date : '';
-    if (!key || key === frozenKey) return;
-    frozenKey = key;
-    frozen = untrack(() => todayOrder(todayOptions));
+    if (!key || key === orderKey) return;
+    orderKey = key;
+    order = untrack(() => panelOrder(options));
   });
 
-  interface ShownRow {
-    metric: ResolvedMetric;
-    value: ReturnType<typeof rowValue>;
-  }
-
-  const rows = $derived<ShownRow[]>(
-    (frozen?.order ?? []).flatMap((id) => {
-      const metric = metricById.get(id);
-      if (!metric) return [];
-      return [{ metric, value: rowValue(session.day, metric, session.settings) }];
-    })
-  );
-
-  const shownRows = $derived(expanded ? rows : rows.slice(0, TODAY_ROW_LIMIT));
-  const hiddenCount = $derived(Math.max(0, rows.length - TODAY_ROW_LIMIT));
-
-  const autoRows = $derived(
-    (frozen?.auto ?? []).flatMap((id) => {
-      const metric = metricById.get(id);
-      if (!metric) return [];
-      return [{ metric, value: autoValue(todayOptions, id) }];
-    })
-  );
-
-  const sheetMetric = $derived(sheetFor ? (metricById.get(sheetFor) ?? null) : null);
-  const sheetValue = $derived(
-    sheetMetric ? rowValue(session.day, sheetMetric, session.settings) : null
-  );
+  const panels = $derived.by(() => {
+    const frozen = order;
+    if (!frozen) return model.panels;
+    return frozen.flatMap((pillar) => {
+      const panel = model.panels.find((candidate) => candidate.pillar === pillar);
+      return panel ? [panel] : [];
+    });
+  });
 
   /* ─── Writing ────────────────────────────────────────────────────────────── */
 
@@ -157,134 +116,39 @@
     );
   }
 
-  function applyNote(note: string): void {
-    void setNote(note);
+  /* ─── Presentation helpers ───────────────────────────────────────────────── */
+
+  /** A bare count is meaningless, so the unit rides with the label; bins label themselves. */
+  function unitOf(metric: ResolvedMetric): string {
+    return metric.bins?.length ? '' : metric.unit;
   }
 
-  function historyFor(metric: ResolvedMetric): { date: string; value: Value }[] {
-    return history
-      .slice(-14)
-      .flatMap((day) => {
-        const entry = day.values[metric.id];
-        const value = entry ? (entry.v ?? null) : null;
-        return value === null ? [] : [{ date: day.date, value }];
-      })
-      .reverse();
+  function valueText(row: PanelMetric): string {
+    const value = row.shown;
+    if (value === null) return '—';
+    if (typeof value === 'boolean') return value ? 'yes' : 'no';
+    return formatValue(value, row.metric.unit, row.metric.decimals);
   }
 
-  /* ─── Keyboard (04-ux.md §4) ─────────────────────────────────────────────── */
-
-  const focusedMetric = $derived(focusedId ? (metricById.get(focusedId) ?? null) : null);
-
-  function focusTarget(row: HTMLElement): HTMLElement | null {
-    return (
-      row.querySelector<HTMLElement>('[role="radio"][tabindex="0"]') ??
-      row.querySelector<HTMLElement>('button, input')
-    );
+  function panelTone(score: number | null): string {
+    return score === null ? 'muted' : scoreTone(score, []);
   }
-
-  function moveFocus(direction: 1 | -1): void {
-    const nodes = rowsEl ? [...rowsEl.querySelectorAll<HTMLElement>('[data-row]')] : [];
-    if (nodes.length === 0) return;
-    const index = nodes.findIndex((node) => node.contains(document.activeElement));
-    const next =
-      index === -1
-        ? direction === 1
-          ? 0
-          : nodes.length - 1
-        : Math.min(nodes.length - 1, Math.max(0, index + direction));
-    const target = nodes[next];
-    if (!target) return;
-    focusTarget(target)?.focus();
-  }
-
-  function handleRowAction(action: KeyAction): void {
-    if (action.type === 'move') {
-      moveFocus(action.direction === 'down' ? 1 : -1);
-      return;
-    }
-    if (action.type === 'editNote') {
-      if (!readOnly) noteInput?.focus();
-      return;
-    }
-    if (readOnly) return;
-
-    const metric = focusedMetric;
-    if (!metric) return;
-    const current = rowValue(session.day, metric, session.settings);
-    const options = optionsOf(metric);
-
-    switch (action.type) {
-      case 'option': {
-        const option = options[action.index];
-        if (option) write(metric, option.value);
-        return;
-      }
-      case 'clear': {
-        if (current.logged) write(metric, null);
-        return;
-      }
-      case 'primary': {
-        // Space is "next option", so one key walks a row without the digits.
-        if (options.length === 0) return;
-        const index = options.findIndex((option) => option.value === current.value);
-        const next = options[(index + 1) % options.length];
-        if (next) write(metric, next.value);
-        return;
-      }
-      default:
-        return;
-    }
-  }
-
-  function trackFocus(event: FocusEvent): void {
-    const row = (event.target as HTMLElement | null)?.closest('[data-row]');
-    focusedId = (row?.getAttribute('data-row') as MetricId | null) ?? null;
-  }
-
-  function dropFocus(event: FocusEvent): void {
-    const container = event.currentTarget as HTMLElement;
-    const next = event.relatedTarget as HTMLElement | null;
-    if (!next || !container.contains(next)) focusedId = null;
-  }
-
-  function canEditNote(): boolean {
-    const metric = focusedMetric;
-    if (!metric || metric.id !== 'learned') return false;
-    return rowValue(session.day, metric, session.settings).value === true;
-  }
-
-  $effect(() => {
-    provideRowContext({
-      state: () => ({
-        optionCount: focusedMetric && !readOnly ? optionsOf(focusedMetric).length : 0,
-        canEditNote: !readOnly && canEditNote(),
-        sheetOpen: sheetFor !== null
-      }),
-      onAction: handleRowAction
-    });
-    return () => provideRowContext(null);
-  });
-
-  $effect(() => {
-    if (sheetFor !== null && !sheetMetric) sheetFor = null;
-  });
 </script>
 
 <svelte:head>
-  <title>north — today</title>
+  <title>north — dashboard</title>
 </svelte:head>
 
 {#if session.ready && gapDays >= 3}
   <Banner message={`Watch data missing for ${gapDays} days. Scores are less reliable.`} />
 {/if}
 
-<div class="shell page">
+<div class="shell wide page">
   <div class="date-line">
     <span class="date">{session.ready && session.date ? formatDate(session.date) : 'Today'}</span>
     <span class="meta" data-testid="mode-marker">
       {#if dayNumber > 0}<span class="num">day {dayNumber}</span> · {/if}
-      {#if restDay}rest day · {/if}
+      {#if session.day?.restDay === true}rest day · {/if}
       <span data-testid="logical-date">{session.date || '—'}</span>
       · {session.demo ? 'demo data' : 'local only'}
       <span hidden data-testid="demo-fingerprint">{fingerprint}</span>
@@ -298,163 +162,147 @@
     </p>
   {/if}
 
-  <ScoreHeader {header} {tone} />
+  <section class="hero fade-in" aria-labelledby="hero-heading">
+    <h2 class="visually-hidden" id="hero-heading">Today's score</h2>
 
-  <section class="block" aria-labelledby="needs-you">
-    <SectionLabel
-      id="needs-you"
-      label="Needs you"
-      count={`${frozen?.needsYouCount ?? 0} ${plural(frozen?.needsYouCount ?? 0, 'item')}`}
-    />
+    <div class="hero-main">
+      <div class="hero-figure">
+        <span class="hero-value num tone-{tone}" data-hero-score
+          >{#if hero.day === null}<span class="placeholder">—</span>{:else}{Math.round(
+              hero.day
+            )}{/if}</span
+        >
+        <span class="meta">today</span>
+      </div>
 
-    <div class="rows" bind:this={rowsEl} onfocusin={trackFocus} onfocusout={dropFocus}>
-      {#each shownRows as row (row.metric.id)}
-        <Row metric={row.metric} value={row.value.value} logged={row.value.logged}>
-          <div class="control-stack">
-            {#if readOnly}
-              <span class="readonly-value num" data-readonly-value
-                >{displayValue(row.metric, row.value.value)}</span
-              >
-            {:else if controlFor(row.metric.widget) === 'triState'}
-              <TriState
-                metric={row.metric}
-                legendId={`row-${row.metric.id}`}
-                value={row.value.value}
-                onpick={(value) => write(row.metric, value)}
-              />
-            {:else if controlFor(row.metric.widget) === 'choice'}
-              <ChoiceRow
-                metric={row.metric}
-                legendId={`row-${row.metric.id}`}
-                value={row.value.value}
-                onpick={(value) => write(row.metric, value)}
-              />
-            {:else if controlFor(row.metric.widget) === 'segmented'}
-              <Segmented
-                metric={row.metric}
-                legendId={`row-${row.metric.id}`}
-                value={row.value.value}
-                onpick={(value) => write(row.metric, value)}
-              />
-            {:else if controlFor(row.metric.widget) === 'bins'}
-              <Bins
-                metric={row.metric}
-                legendId={`row-${row.metric.id}`}
-                value={row.value.value}
-                onpick={(value) => write(row.metric, value)}
-              />
-            {/if}
-
-            {#if !readOnly && row.metric.id === 'learned' && row.value.value === true}
-              <NoteField
-                value={session.day?.note ?? ''}
-                onchange={applyNote}
-                input={(element) => (noteInput = element)}
-              />
-            {/if}
+      <dl class="hero-side">
+        <div class="hero-row">
+          <dt class="meta">7-day</dt>
+          <dd class="num">{hero.sevenDay === null ? '—' : Math.round(hero.sevenDay)}</dd>
+        </div>
+        <div class="hero-row">
+          <dt class="meta">streak</dt>
+          <dd class="num">{hero.streak}</dd>
+        </div>
+        {#if delta !== null}
+          <div class="hero-row">
+            <dt class="meta">vs 7-day</dt>
+            <dd class="num">{formatSigned(delta)}</dd>
           </div>
-        </Row>
-      {/each}
+        {/if}
+      </dl>
     </div>
 
-    {#if hiddenCount > 0}
-      <button
-        class="expander"
-        type="button"
-        aria-expanded={expanded}
-        data-testid="expander"
-        onclick={() => (expanded = !expanded)}
-      >
-        {expanded ? 'Show fewer' : `+ ${hiddenCount} more`}
-      </button>
-    {/if}
+    <div class="hero-chart">
+      <AreaChart points={hero.sparkline} label="30-day score" />
+      <div class="chart-foot">
+        <span class="meta">30 days</span>
+        {#if bandWord}<span class="meta">{bandWord}</span>{/if}
+      </div>
+    </div>
+
+    <p class="visually-hidden" aria-live="polite">{scoreAnnouncement(hero)}</p>
   </section>
 
-  <section class="block" aria-labelledby="automatic">
-    <SectionLabel id="automatic" label="Automatic" count={`${autoRows.length} ${plural(autoRows.length, 'value')}`} />
-    {#if autoRows.length === 0}
-      <p class="prose">Nothing arrived from a device yet.</p>
-    {:else}
-      <ul class="strip">
-        {#each autoRows as row (row.metric.id)}
-          <li>
-            <AutoCell
-              metric={row.metric}
-              value={row.value}
-              source={session.day?.values[row.metric.id]?.src ?? 'auto'}
-              overridden={session.day?.values[row.metric.id]?.overridden === true}
-              onopen={() => (sheetFor = row.metric.id)}
-            />
-          </li>
-        {/each}
-      </ul>
+  <p class="status-line">
+    <span class="meta">Logged {hero.logged} of {hero.total} today.</span>
+    {#if !readOnly && model.open.length > 0}
+      <span class="meta to-log" data-testid="to-log">· {model.open.length} to log</span>
     {/if}
-  </section>
+  </p>
 
   {#if link}
-    <section class="block" aria-labelledby="weakest-link">
-      <SectionLabel id="weakest-link" label="Weakest link" count={`${link.n} days`} />
-      <p class="prose">
-        <span class="link-head"
-          >{link.pillarLabel} · <span class="num">{Math.round(link.score)}</span></span
-        >
-        — {link.label}: {link.lever}
-      </p>
-    </section>
+    <p class="next" data-testid="next">
+      <span class="next-head"
+        >{link.pillarLabel} · <span class="num">{Math.round(link.score)}</span></span
+      ><span class="meta"> — {link.label}: {link.lever}</span>
+    </p>
   {/if}
+
+  <div class="panels">
+    {#each panels as panel (panel.pillar)}
+      <section class="panel" data-panel={panel.pillar} aria-labelledby={`panel-${panel.pillar}`}>
+        <header class="panel-head">
+          <h2 class="section-label" id={`panel-${panel.pillar}`}>{panel.label}</h2>
+          <span class="panel-score num tone-{panelTone(panel.score)}" data-panel-score={panel.pillar}
+            >{panel.score === null ? '—' : Math.round(panel.score)}</span
+          >
+          <Sparkline points={panel.spark} label={`${panel.label} score`} />
+        </header>
+
+        <ul class="panel-rows">
+          {#each panel.metrics as row (row.metric.id)}
+            <li class="prow" data-row={row.metric.id}>
+              <span class="prow-label" id={`row-${row.metric.id}`} title={row.metric.help}
+                >{row.metric.label}
+                {#if unitOf(row.metric)}<span class="unit">{unitOf(row.metric)}</span>{/if}</span
+              >
+
+              {#if row.control !== null && !readOnly}
+                <div class="prow-control">
+                  {#if row.control === 'triState'}
+                    <TriState
+                      metric={row.metric}
+                      legendId={`row-${row.metric.id}`}
+                      value={row.value.value}
+                      onpick={(value) => write(row.metric, value)}
+                    />
+                  {:else if row.control === 'choice'}
+                    <ChoiceRow
+                      metric={row.metric}
+                      legendId={`row-${row.metric.id}`}
+                      value={row.value.value}
+                      onpick={(value) => write(row.metric, value)}
+                    />
+                  {:else if row.control === 'segmented'}
+                    <Segmented
+                      metric={row.metric}
+                      legendId={`row-${row.metric.id}`}
+                      value={row.value.value}
+                      onpick={(value) => write(row.metric, value)}
+                    />
+                  {:else if row.control === 'bins'}
+                    <Bins
+                      metric={row.metric}
+                      legendId={`row-${row.metric.id}`}
+                      value={row.value.value}
+                      onpick={(value) => write(row.metric, value)}
+                    />
+                  {/if}
+                </div>
+              {:else}
+                <span
+                  class="prow-value num"
+                  class:muted={row.shown === null}
+                  title={row.shown === null ? 'nothing yet' : row.metric.help}
+                  data-value>{valueText(row)}</span
+                >
+                {#if row.control === null && row.chart.kind === 'bars'}
+                  <div class="prow-chart" data-chart={row.metric.id}>
+                    <Bars
+                      chart={row.chart}
+                      label={`${row.metric.label}, ${row.chart.caption}`}
+                    />
+                  </div>
+                {/if}
+              {/if}
+            </li>
+          {/each}
+        </ul>
+
+        {#if panel.daily}
+          <p class="panel-foot meta">
+            {panel.n} of 28 days scored{panel.score === null ? ' · no figure yet' : ''}
+          </p>
+        {/if}
+      </section>
+    {/each}
+  </div>
 
   <footer class="footer">
-    <span class="meta">north · local-first · no server, no accounts, no analytics</span>
+    <span class="meta">north · local-first · no server state, no accounts, no analytics</span>
   </footer>
 </div>
-
-<Sheet
-  open={sheetMetric !== null}
-  title={sheetMetric?.label ?? ''}
-  onclose={() => (sheetFor = null)}
->
-  {#if sheetMetric && sheetValue}
-    <p class="meta">source: {SOURCE_LABEL[sheetMetric.source]}</p>
-    <p class="meta">
-      {sheetValue.score === null ? 'no score' : `score ${Math.round(sheetValue.score)} of 100`}
-      {#if aboveTarget(sheetMetric, sheetValue.value)}
-        · {aboveTarget(sheetMetric, sheetValue.value)}
-      {/if}
-    </p>
-
-    <div class="sheet-control">
-      {#if readOnly}
-        <p class="meta">Read-only — past days can be corrected for 30 days.</p>
-      {:else if controlFor(sheetMetric.widget) === 'triState'}
-        <TriState
-          metric={sheetMetric}
-          legendId={`sheet-${sheetMetric.id}`}
-          value={sheetValue.value}
-          onpick={(value) => write(sheetMetric, value)}
-        />
-      {:else}
-        <NumberField
-          metric={sheetMetric}
-          value={typeof sheetValue.value === 'number' ? sheetValue.value : null}
-          note={aboveTarget(sheetMetric, sheetValue.value)}
-          onchange={(value) => write(sheetMetric, value)}
-        />
-      {/if}
-    </div>
-
-    <h3 class="section-label history-title">Last 14 days</h3>
-    <dl class="history">
-      {#each historyFor(sheetMetric) as entry (entry.date)}
-        <div class="history-row">
-          <dt class="meta">{formatDate(entry.date, 'short')}</dt>
-          <dd class="num">{formatValue(entry.value, sheetMetric.unit, sheetMetric.decimals)}</dd>
-        </div>
-      {:else}
-        <div class="history-row"><dt class="meta">nothing yet</dt><dd></dd></div>
-      {/each}
-    </dl>
-  {/if}
-</Sheet>
 
 <style>
   .page {
@@ -479,56 +327,207 @@
     margin-bottom: var(--s-4);
   }
 
-  .readonly-value {
+  /* ── Hero ──────────────────────────────────────────────────────────────── */
+
+  .hero {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: var(--s-10);
+    padding-bottom: var(--s-6);
+    border-bottom: var(--bw-hair) solid var(--rule);
+  }
+
+  .hero-main {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--s-6);
+  }
+
+  .hero-figure {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-1);
+  }
+
+  .hero-value {
+    font-size: var(--fs-56);
+    font-variant-numeric: tabular-nums;
+    line-height: var(--lh-tight);
+  }
+
+  /* No score yet: a 56 px em-dash reads as a redaction bar, so the placeholder
+     is drawn smaller. The box keeps its 56 px line height, so nothing shifts. */
+  .placeholder {
+    font-size: var(--fs-24);
+    color: var(--ink-muted);
+  }
+
+  .tone-accent {
+    color: var(--accent);
+  }
+
+  .tone-ink {
+    color: var(--ink);
+  }
+
+  .tone-muted {
+    color: var(--ink-muted);
+  }
+
+  .tone-warn {
+    color: var(--warn);
+  }
+
+  .tone-bad {
+    color: var(--bad);
+  }
+
+  .hero-side {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-1);
+    padding-bottom: var(--s-2);
+  }
+
+  .hero-row {
+    display: flex;
+    align-items: baseline;
+    gap: var(--s-2);
+  }
+
+  .hero-row dt {
+    min-width: 58px;
+  }
+
+  .hero-row dd {
     font-size: var(--fs-14);
     color: var(--ink);
   }
 
-  .block {
-    border-top: var(--bw-hair) solid var(--rule);
-    padding-top: var(--s-5);
-    margin-top: var(--s-6);
-  }
-
-  .rows {
-    /* The one grid the rows subgrid: a shared label track and a shared control
-       track, so the cells line up down the column (05-design.md §3). */
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    column-gap: var(--s-4);
-  }
-
-  .control-stack {
+  .hero-chart {
     display: flex;
     flex-direction: column;
-    align-items: flex-end;
     gap: var(--s-1);
+    min-width: 0;
   }
 
-  .control-stack :global(.note) {
-    min-width: var(--spark-w);
-  }
-
-  .expander {
+  .chart-foot {
     display: flex;
-    align-items: center;
-    min-height: var(--tap-min);
-    margin-top: var(--s-2);
-    font-size: var(--fs-13);
-    color: var(--accent);
-    text-decoration: underline;
-    text-decoration-thickness: var(--bw-hair);
-    text-underline-offset: 2px;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--s-4);
   }
 
-  .strip {
+  .status-line {
     display: flex;
     flex-wrap: wrap;
     gap: var(--s-2);
+    margin-top: var(--s-3);
   }
 
-  .link-head {
+  .to-log {
     color: var(--ink);
+  }
+
+  .next {
+    margin-top: var(--s-4);
+    font-size: var(--fs-13);
+    line-height: var(--lh-body);
+  }
+
+  .next-head {
+    color: var(--ink);
+  }
+
+  /* ── Panels ────────────────────────────────────────────────────────────── */
+
+  .panels {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--s-8) var(--s-10);
+    margin-top: var(--s-8);
+  }
+
+  .panel {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    border-top: var(--bw-hair) solid var(--rule-strong);
+    padding-top: var(--s-3);
+  }
+
+  .panel-head {
+    display: flex;
+    align-items: baseline;
+    gap: var(--s-3);
+    margin-bottom: var(--s-2);
+  }
+
+  .panel-head h2 {
+    flex: 1 1 auto;
+  }
+
+  .panel-score {
+    font-size: var(--fs-32);
+    line-height: var(--lh-tight);
+  }
+
+  .panel-head :global(.sparkline) {
+    align-self: center;
+  }
+
+  .panel-rows {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .prow {
+    display: flex;
+    align-items: center;
+    gap: var(--s-1) var(--s-4);
+    min-height: var(--row-h);
+    padding: var(--s-1) 0;
+    border-bottom: var(--bw-hair) solid var(--rule);
+  }
+
+  .prow-label {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: baseline;
+    gap: var(--s-2);
+    min-width: 0;
+    font-size: var(--fs-14);
+    color: var(--ink);
+  }
+
+  .unit {
+    font-size: var(--fs-11);
+    color: var(--ink-muted);
+    white-space: nowrap;
+  }
+
+  .prow-value {
+    flex: 0 0 auto;
+    font-size: var(--fs-14);
+    color: var(--ink);
+  }
+
+  .prow-value.muted {
+    color: var(--ink-faint);
+  }
+
+  .prow-control {
+    flex: 0 0 auto;
+    margin-left: auto;
+  }
+
+  .prow-chart {
+    flex: 0 0 auto;
+  }
+
+  .panel-foot {
+    margin-top: var(--s-2);
   }
 
   .footer {
@@ -537,44 +536,46 @@
     border-top: var(--bw-hair) solid var(--rule);
   }
 
-  .sheet-control {
-    margin: var(--s-5) 0;
+  /* Below the panel grid: one column, and a row's control or chart takes the
+     full width under its label rather than being squeezed beside it. */
+  @media (max-width: 839px) {
+    .panels {
+      grid-template-columns: minmax(0, 1fr);
+      gap: var(--s-8);
+    }
   }
 
-  .history-title {
-    margin-bottom: var(--s-2);
-  }
-
-  .history {
-    display: grid;
-    gap: var(--s-1);
-  }
-
-  .history-row {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: var(--s-4);
-    padding: var(--s-1) 0;
-    border-bottom: var(--bw-hair) solid var(--rule);
-  }
-
-  .history-row dd {
-    font-size: var(--fs-13);
+  @media (max-width: 719px) {
+    .hero {
+      grid-template-columns: minmax(0, 1fr);
+      gap: var(--s-5);
+      align-items: start;
+    }
   }
 
   @media (max-width: 479px) {
-    .rows {
-      grid-template-columns: minmax(0, 1fr);
-    }
-
     .date-line {
       flex-direction: column;
       gap: var(--s-1);
     }
 
-    .control-stack {
-      align-items: flex-start;
+    .hero-main {
+      flex-wrap: wrap;
+      gap: var(--s-4);
+    }
+
+    .prow {
+      flex-wrap: wrap;
+    }
+
+    .prow-control,
+    .prow-chart {
+      flex: 1 1 100%;
+      margin-left: 0;
+    }
+
+    .prow-chart {
+      --bars-w: 100%;
     }
   }
 </style>

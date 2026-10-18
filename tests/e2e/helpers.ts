@@ -49,11 +49,18 @@ export async function rowOrder(page: Page): Promise<string[]> {
   );
 }
 
-/** Wait for the first paint of a loaded, ready Today screen. */
+/** Wait for the first paint of a loaded, ready log screen (`/log`, v1's Today). */
 export async function openToday(page: Page, search = ''): Promise<void> {
-  await page.goto(`/${search}`);
+  await page.goto(`/log${search}`);
   await logicalDate(page).waitFor();
   await page.locator('[data-row]').first().waitFor();
+}
+
+/** Wait for the first paint of the v2 dashboard, which is the home screen. */
+export async function openDashboard(page: Page, search = ''): Promise<void> {
+  await page.goto(`/${search}`);
+  await logicalDate(page).waitFor();
+  await page.locator('[data-panel]').first().waitFor();
 }
 
 /* ─── Local-mode seeding (M4 acceptance 6) ────────────────────────────────

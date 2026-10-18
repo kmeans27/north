@@ -21,7 +21,7 @@
   let { children }: { children: Snippet } = $props();
 
   /** Routes that exist. Grows milestone by milestone; a dead link is worse than none. */
-  type Route = '/' | '/week' | '/trends' | '/settings';
+  type Route = '/' | '/log' | '/week' | '/trends' | '/settings';
   /** A route with the demo flag kept on; typed so `resolve()` accepts it. */
   type NavTarget = Route | `${Route}?demo=1`;
 
@@ -30,8 +30,10 @@
     label: string;
   }
 
+  /* docs/V2.md §2/§6: the dashboard is home and the wordmark reaches it — four
+     links plus the wordmark is the most that fits at a 320 px viewport. */
   const NAV: NavItem[] = [
-    { href: '/', label: 'today' },
+    { href: '/log', label: 'log' },
     { href: '/week', label: 'week' },
     { href: '/trends', label: 'trends' },
     { href: '/settings', label: 'set' }
@@ -40,10 +42,14 @@
   /** The `G` targets that exist today. Missing ones are inert, not 404s. */
   const LIVE_ROUTES: Partial<Record<RoutePath, Route>> = {
     '/': '/',
+    '/log': '/log',
     '/week': '/week',
     '/trends': '/trends',
     '/settings': '/settings'
   };
+
+  /** The one-day screens: `[` and `]` move the viewed day on these, nowhere else. */
+  const DAY_ROUTES: readonly string[] = ['/', '/log'];
 
   /** 04-ux.md §4, as the help overlay shows it. */
   const KEY_HELP: { keys: string; action: string }[] = [
@@ -54,8 +60,8 @@
     { keys: 'Backspace', action: 'clear the focused row' },
     { keys: 'E', action: 'edit the note' },
     { keys: '⌘Z / Ctrl+Z', action: 'undo the last write' },
-    { keys: 'G then T / W / R / S', action: 'today / week / trends / settings' },
-    { keys: '[ / ]', action: 'previous / next day' },
+    { keys: 'G then D / L / W / R / S', action: 'dashboard / log / week / trends / settings' },
+    { keys: '[ / ]', action: 'previous / next day (dashboard and log)' },
     { keys: 'Esc', action: 'dismiss a sheet, blur a field' },
     { keys: '?', action: 'this list' }
   ];
@@ -104,14 +110,16 @@
   });
 
   /**
-   * `[` and `]` move the viewed day. The mode param (`?demo=1`) travels with
-   * the URL, otherwise browsing days would drop out of demo mode.
+   * `[` and `]` move the viewed day on the one-day screens. The mode param
+   * (`?demo=1`) travels with the URL, otherwise browsing days would drop out of
+   * demo mode.
    */
   function goToDay(date: string | null): void {
     const parts: string[] = [];
     if (session.demo) parts.push('demo=1');
     if (date) parts.push(`d=${date}`);
-    void goto(resolve(parts.length > 0 ? `/?${parts.join('&')}` : '/'));
+    const search = parts.length > 0 ? `?${parts.join('&')}` : '';
+    void goto(resolve(`${current}${search}` as Route));
   }
 
   function perform(action: KeyAction): void {
@@ -134,8 +142,8 @@
         else if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
         break;
       case 'shiftDay': {
-        // Only the Today screen shows one day; elsewhere `[` and `]` are inert.
-        if (current !== '/') break;
+        // Only the one-day screens show a single day; elsewhere `[` and `]` are inert.
+        if (!DAY_ROUTES.includes(current)) break;
         const next = addDays(session.date, action.delta);
         goToDay(next > session.today ? null : next);
         break;
@@ -168,7 +176,7 @@
 <a class="skip-link" href="#main">Skip to content</a>
 
 <header class="topbar">
-  <div class="shell topbar-inner">
+  <div class="shell topbar-inner" class:wide={current === '/'}>
     <a class="logotype wordmark" href={resolve(href('/'))}>north</a>
 
     <div class="topbar-right">

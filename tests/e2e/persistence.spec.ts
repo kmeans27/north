@@ -99,7 +99,7 @@ test('?d= opens a past day and reads what is stored there', async ({ page }) => 
   }, today);
 
   await seedDay(page, yesterday, 'protein', 2);
-  await page.goto(`/?d=${yesterday}`);
+  await page.goto(`/log?d=${yesterday}`);
 
   await expect(logicalDate(page)).toHaveText(yesterday);
   await page.getByTestId('expander').click();
@@ -107,7 +107,7 @@ test('?d= opens a past day and reads what is stored there', async ({ page }) => 
 });
 
 test('demo mode is labelled and never touches the device store', async ({ page }) => {
-  await page.goto('/?demo=1');
+  await page.goto('/log?demo=1');
   await logicalDate(page).waitFor();
 
   await expect(page.getByTestId('mode-marker')).toContainText('demo data');
@@ -125,6 +125,6 @@ test('a future ?d= falls back to today', async ({ page }) => {
   await openToday(page);
   const today = (await logicalDate(page).textContent())!.trim();
 
-  await page.goto('/?d=2999-01-01');
+  await page.goto('/log?d=2999-01-01');
   await expect(logicalDate(page)).toHaveText(today);
 });
