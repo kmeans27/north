@@ -25,7 +25,7 @@
   <div class="figures">
     <div class="figure">
       <span class="figure-value big num tone-{tone}"
-        >{header.day === null ? '—' : rounded(header.day)}</span
+        >{#if header.day === null}<span class="placeholder">—</span>{:else}{rounded(header.day)}{/if}</span
       >
       <span class="meta">today</span>
     </div>
@@ -84,6 +84,14 @@
 
   .mid {
     font-size: var(--fs-20);
+  }
+
+  /* No score yet: a 56 px em-dash reads as a redaction bar, so the placeholder
+     is drawn smaller. The box keeps its 56 px line height, so nothing shifts
+     when the score arrives. */
+  .placeholder {
+    font-size: var(--fs-24);
+    color: var(--ink-muted);
   }
 
   .muted {

@@ -48,14 +48,29 @@ writing anything to storage. Demo data is in memory only and is clearly labelled
 | M8 | PWA, offline, print, a11y | — |
 | M9 | Release | — |
 
-Last gate (M4): `npm run check` 0 errors / 0 warnings · 353 unit tests green ·
+Last gate (M4 + Today polish): `npm run check` 0 errors / 0 warnings · 353 unit tests green ·
 lint clean · build clean · 63 e2e pass + 1 skipped.
-Budgets at M4: **JS + CSS gzipped 76.8 KB** (limit 90 KB) · **font 30.8 KB**
+Budgeted at M4: **JS + CSS gzipped 76.8 KB** (limit 90 KB) · **font 30.8 KB**
 (limit 60 KB). Live at <https://kmeans27.github.io/north/>.
 
 The build order and the acceptance criteria for every milestone are in
 [`08-build-plan.md`](08-build-plan.md). A milestone is finished only when every line of its
 acceptance list passes.
+
+### Today polish pass (after M4)
+
+The owner's priority is that logging feels fast and the screen reads at a glance, so the
+Today screen was tightened before starting M5:
+
+- **Rows stack on phones.** `04-ux.md` §2 draws the label and its cells side by side in a 52 px
+  row. At the 390 px viewport that is not possible without breaking the 44 × 44 tap floor: a
+  six-cell choice row is 6 × 44 px plus gaps (~300 px), leaving ≈ 65 px for the label, which
+  wraps every label mid-phrase. Below 480 px the label now sits **above** its control in a tight
+  two-line row, so labels read on one line and the cells keep their size. All six rows and the
+  `+ 3 more` expander still fit inside the 844 px viewport, so the M3 acceptance holds.
+- **The empty-score placeholder no longer reads as a redaction bar.** With no score yet the
+  56 px em-dash looked like a solid black bar; it is now drawn at 24 px inside the same 56 px
+  line box, so the number can appear without shifting the page.
 
 ## Deploy
 

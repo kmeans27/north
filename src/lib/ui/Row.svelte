@@ -107,11 +107,12 @@
     }
   }
 
-  /* A label plus six 44 px cells needs ~335 px of content, so below the 380 px
-     phone the label stacks above its control instead of squeezing past it. */
-  @media (max-width: 379px) {
+  /* A label plus six 44 px cells needs ~435 px, so on phones the label sits
+     above its control rather than being squeezed into the leftover 65 px. */
+  @media (max-width: 479px) {
     .row {
-      padding: var(--s-2) 0;
+      gap: var(--s-1);
+      padding: 0 0 var(--s-1);
     }
 
     .control {

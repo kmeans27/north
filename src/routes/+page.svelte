@@ -563,7 +563,7 @@
     font-size: var(--fs-13);
   }
 
-  @media (max-width: 379px) {
+  @media (max-width: 479px) {
     .rows {
       grid-template-columns: minmax(0, 1fr);
     }
