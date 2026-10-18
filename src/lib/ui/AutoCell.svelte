@@ -1,7 +1,7 @@
 <script lang="ts">
   /* 05-design.md §4: an 11 px label above a 14 px figure and a 4 px source dot.
      Tapping opens the sheet with the history and the override (04-ux.md §3). */
-  import { formatCompact, formatValue, pluralUnit } from '$lib/format';
+  import { formatCompact, formatValue, joinUnit, pluralUnit } from '$lib/format';
   import type { DayValue, ResolvedMetric, Value } from '$lib/metrics/types';
 
   interface Props {
@@ -18,7 +18,7 @@
     typeof value === 'number'
       ? metric.unit === 'k'
         ? formatValue(value, 'k')
-        : `${formatCompact(value, metric.unit)}${metric.unit ? ` ${pluralUnit(value, metric.unit)}` : ''}`
+        : joinUnit(formatCompact(value, metric.unit), pluralUnit(value, metric.unit))
       : formatValue(value, metric.unit, metric.decimals)
   );
 

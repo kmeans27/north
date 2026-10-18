@@ -65,7 +65,7 @@ export interface ScoreSpec {
 export interface MetricDef {
   id: MetricId;
   pillar: Pillar;
-  label: string;             // "Protein anchors"
+  label: string;             // "Protein"
   short: string;             // ≤ 14 chars, used in compact strips
   unit: string;              // 'h' | 'g' | 'min' | 'servings' | 'blocks' | '%' | ''
   cadence: Cadence;
@@ -117,7 +117,7 @@ export const REGISTRY: MetricDef[] = [
     evidence: 'UK Biobank: sleep regularity predicts mortality more strongly than duration.',
   },
   {
-    id: 'protein', pillar: 'body', label: 'Protein anchors', short: 'Protein', unit: '×32 g',
+    id: 'protein', pillar: 'body', label: 'Protein', short: 'Protein', unit: '×32 g',
     cadence: 'daily', widget: 'counter',
     score: (s: Settings) => ({
       curve: 'counter',

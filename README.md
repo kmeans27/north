@@ -49,7 +49,7 @@ writing anything to storage. Demo data is in memory only and is clearly labelled
 | M8 | PWA, offline, print, a11y | — |
 | M9 | Release | — |
 
-Last gate (M4 + polish): `npm run check` 0 errors / 0 warnings · 361 unit tests green ·
+Last gate (M4 + polish): `npm run check` 0 errors / 0 warnings · 363 unit tests green ·
 lint clean · build clean · 63 e2e pass + 1 skipped · 12 server tests green.
 Budgeted at M4: **JS + CSS gzipped 76.8 KB** (limit 90 KB) · **font 30.8 KB** (limit 60 KB).
 Served by `server/serve.py` (see [Deploy](#deploy--self-hosted)); no hosted URL until you point a
@@ -86,6 +86,21 @@ Week and Trends were tightened before starting M5:
   them. The card copy itself is unchanged.
 - **The auto-cell sheet labels its score.** The sheet showed a bare `80 of 100`; it now reads
   `score 80 of 100` next to `source: watch`.
+- **A row now says what a tap means.** `Protein anchors` was jargon: nothing on the screen
+  explained that the count is in 32 g units, so `Protein 2` was a number with no meaning. The
+  label is now `Protein`, and a row prints its unit — `Protein ×32 g`, `Greens & fruit servings`,
+  `Deep blocks ×45 min` — muted, after the label. Rows whose bins already carry the unit
+  (`≤ 30m 30–60m 1–2h 2h+`) suppress it rather than repeat themselves. The metric's `help`
+  sentence ("One tap per 32 g of protein. Not a diary — a count.") is the row label's `title`
+  on hover, and it stays in the accessible name, so the screen reader announces
+  `Protein ×32 g, 3 of 5`. Two more jargon short-names went with it: `Regular` →
+  `Regularity`, `Leaks` → `Distraction`. `02-metrics.md`, `04-ux.md`, `VISION.md` and the
+  registry were all updated together.
+- **One minus glyph.** Week's comparison printed `−22` (U+2212) while Today's auto cells printed
+  `-0.1 %/wk` (ASCII hyphen). `formatNumber` now uses the typographic minus, so both screens
+  agree: `Weight −0.1 %/wk`.
+- **Units hug their slash.** `Gym 0 /wk` read like two tokens; a unit that starts with `/` is
+  now joined without a space (`0/wk`), while `7.4 h` and `94 %` keep theirs.
 
 ## Deploy — self-hosted
 

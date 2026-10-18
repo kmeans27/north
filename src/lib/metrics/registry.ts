@@ -19,7 +19,7 @@ export const REGISTRY: MetricDef[] = [
     evidence: 'AASM/SRS: 7+ hours per night for adults.'
   },
   {
-    id: 'sleep_consistency', pillar: 'body', label: 'Sleep regularity', short: 'Regular', unit: 'min',
+    id: 'sleep_consistency', pillar: 'body', label: 'Sleep regularity', short: 'Regularity', unit: 'min',
     cadence: 'daily', widget: 'number', step: 5, decimals: 0,
     score: { curve: 'range', target: 30, good: 30, bad: 90 },
     weight: 0.03, source: 'derived', countsTowardCoverage: false,
@@ -29,7 +29,7 @@ export const REGISTRY: MetricDef[] = [
     evidence: 'UK Biobank: sleep regularity predicts mortality more strongly than duration.'
   },
   {
-    id: 'protein', pillar: 'body', label: 'Protein anchors', short: 'Protein', unit: '×32 g',
+    id: 'protein', pillar: 'body', label: 'Protein', short: 'Protein', unit: '×32 g',
     cadence: 'daily', widget: 'counter',
     score: (s: Settings) => ({
       curve: 'counter',
@@ -162,7 +162,7 @@ export const REGISTRY: MetricDef[] = [
     evidence: 'Restricting use to 30 min/day improved wellbeing in randomised trials.'
   },
   {
-    id: 'distraction_min', pillar: 'attention', label: 'Distraction', short: 'Leaks', unit: 'min',
+    id: 'distraction_min', pillar: 'attention', label: 'Distraction', short: 'Distraction', unit: 'min',
     cadence: 'daily', widget: 'number', step: 15, decimals: 0,
     score: { curve: 'range', target: 90, good: 90, bad: 240 },
     weight: 0.05, source: 'collector', countsTowardCoverage: true,

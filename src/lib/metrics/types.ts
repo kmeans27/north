@@ -35,7 +35,7 @@ export interface ScoreSpec {
 export interface MetricDef {
   id: MetricId;
   pillar: Pillar;
-  label: string;             // "Protein anchors"
+  label: string;             // "Protein"
   short: string;             // ≤ 14 chars, used in compact strips
   unit: string;              // 'h' | 'g' | 'min' | 'servings' | 'blocks' | '%' | ''
   cadence: Cadence;

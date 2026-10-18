@@ -146,7 +146,7 @@ test('7. the toast appears once per write, dismisses in 4 s, and takes focus', a
   await cell(page, 'protein', '4').click();
 
   await expect(page.locator('.toast')).toHaveCount(1);
-  await expect(page.locator('.toast')).toContainText('Protein anchors 4');
+  await expect(page.locator('.toast')).toContainText('Protein 4');
 
   // A second write replaces the first: one toast, never a stack.
   await cell(page, 'creatine', 'yes').click();

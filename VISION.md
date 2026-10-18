@@ -54,7 +54,7 @@ Values are canonical; nothing here is invented.
 |---|---|---|---|---|---|
 | Body | Sleep | daily | NumberField | Steppers (±0.1 h) or type; auto from Apple Health | auto |
 | Body | Sleep regularity | daily | NumberField | Derived from 7 nights; read-only in practice | auto |
-| Body | Protein anchors | daily | ChoiceRow | Tap one cell `0 1 2 3 4 5` (one per 32 g) | 1 |
+| Body | Protein | daily | ChoiceRow | Tap one cell `0 1 2 3 4 5` — one cell per 32 g anchor | 1 |
 | Body | Creatine | daily | TriState | Tap `✓`; tap `·` to clear | 1 |
 | Body | Greens & fruit | daily | ChoiceRow | Tap one serving cell `0…5` | 1 |
 | Body | Alcohol-free | daily | TriState | Tap `✓` on a dry day | 1 |

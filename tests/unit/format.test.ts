@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatCompact, formatValue, plural, pluralUnit } from '../../src/lib/format';
+import { formatCompact, formatNumber, formatValue, joinUnit, plural, pluralUnit } from '../../src/lib/format';
 
 /*
  * Count nouns follow their number (04-ux.md §10). The registry stores the
@@ -40,6 +40,20 @@ describe('formatValue', () => {
     expect(formatValue(7.4, 'h', 1)).toBe('7.4 h');
     expect(formatValue(2, 'min', 0)).toBe('2 min');
     expect(formatValue(94, '%', 0)).toBe('94 %');
+  });
+
+  it('hugs a unit that starts with a slash', () => {
+    expect(formatValue(0, '/wk', 0)).toBe('0/wk');
+    expect(formatValue(-0.1, '%/wk', 1)).toBe('−0.1 %/wk');
+    expect(joinUnit('9.4', '/wk')).toBe('9.4/wk');
+    expect(joinUnit('7.1', 'h')).toBe('7.1 h');
+    expect(joinUnit('9.4', '')).toBe('9.4');
+  });
+
+  it('uses one minus glyph everywhere', () => {
+    expect(formatNumber(-4)).toBe('−4');
+    expect(formatValue(-0.8, 'kg', 1)).toBe('−0.8 kg');
+    expect(formatNumber(-1234)).toBe('−1,234');
   });
 
   /*

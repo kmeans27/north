@@ -17,6 +17,9 @@
   let { metric, value, logged, rest = false, children }: Props = $props();
 
   const labelId = $derived(`row-${metric.id}`);
+  /* A bare count is meaningless: "Protein 2" only makes sense once you know a
+     tap is 32 g. Bins carry their own labels and would only repeat themselves. */
+  const unit = $derived(metric.bins?.length ? '' : metric.unit);
   let ink = $state(false);
   /* Plain locals: they must survive between effect runs, not trigger them. */
   let previous: Value = null;
@@ -31,8 +34,9 @@
 </script>
 
 <div class="row" class:logged data-row={metric.id}>
-  <span class="label" id={labelId}>
+  <span class="label" id={labelId} title={metric.help}>
     {metric.label}
+    {#if unit}<span class="unit">{unit}</span>{/if}
     {#if rest}<span class="rest">rest</span>{/if}
   </span>
 
@@ -77,6 +81,12 @@
   .rest {
     font-size: var(--fs-11);
     color: var(--ink-muted);
+  }
+
+  .unit {
+    font-size: var(--fs-11);
+    color: var(--ink-muted);
+    white-space: nowrap;
   }
 
   .control {

@@ -3,11 +3,18 @@
 
 import type { Value } from './metrics/types';
 
+/**
+ * One minus glyph across the app: `−4`, not two different dashes on two
+ * screens. `04-ux.md` §5 fixes the typographic minus (U+2212) for comparisons;
+ * plain numbers use it too, so `Weight −0.1 %/wk` matches Week's `−22`.
+ */
 export function formatNumber(value: number, decimals = 0): string {
-  return value.toLocaleString('en-GB', {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals
-  });
+  return value
+    .toLocaleString('en-GB', {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals
+    })
+    .replace('-', '\u2212');
 }
 
 /**
@@ -21,6 +28,15 @@ function inThousands(value: number): string {
   return text.endsWith('.0') ? text.slice(0, -2) : text;
 }
 
+/**
+ * A unit that starts with a slash hugs its number — `0/wk`, not `0 /wk`. Every
+ * other unit takes a space: `7.4 h`, `94 %`, `9.4 k`.
+ */
+export function joinUnit(text: string, unit: string): string {
+  if (!unit) return text;
+  return unit.startsWith('/') ? `${text}${unit}` : `${text} ${unit}`;
+}
+
 /** Human value for a metric row. `unset` is a state, not a zero. */
 export function formatValue(value: Value, unit = '', decimals?: number): string {
   if (value === null || value === undefined) return 'unset';
@@ -28,7 +44,7 @@ export function formatValue(value: Value, unit = '', decimals?: number): string 
   if (typeof value === 'number') {
     if (unit === 'k') return `${inThousands(value)} k`;
     const text = formatNumber(value, decimals ?? (Number.isInteger(value) ? 0 : 1));
-    return unit ? `${text} ${pluralUnit(value, unit)}` : text;
+    return joinUnit(text, pluralUnit(value, unit));
   }
   return value;
 }
