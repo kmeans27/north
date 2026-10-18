@@ -7,10 +7,11 @@ separate private repo; this repo contains code and demo data only.
 > You log roughly nine taps a day. The watch and the computer fill in the rest.
 > The home screen reads at a glance; the log is for filling the gaps.
 
-**Status: v2.** v1 was a flat list of rows — a form, not a dashboard. v2 replaces the home
-screen with a categorised dashboard of charts, keeps the old list at `/log`, and puts the nine
-daily taps on the dashboard itself. The Apple Health pipeline is designed and is next.
-**[`docs/V2.md`](docs/V2.md) is the live brief; read it first.**
+**Status: v2.1.** v1 was a flat list of rows — a form, not a dashboard. v2 replaced the home
+screen with a categorised dashboard of charts and kept the old list at `/log`. v2.1 is the look:
+full width, tiles sized by how much a metric matters, real colour, and a hand path for Apple
+Health data (no server, no automation). **[`docs/V2.md`](docs/V2.md) and
+[`docs/V2.1.md`](docs/V2.1.md) are the live briefs; read them first.**
 
 **Why north exists.** Habit trackers track *habits*; north tracks the small,
 important parts of life that decide how well you perform — sleep, food, focus,
@@ -156,7 +157,7 @@ Week and Trends were tightened before starting M5:
 
 ## Deploy — self-hosted
 
-The site is a prerendered static bundle served from a real server, not GitHub Pages.
+The site is a prerendered static bundle served by `server/serve.py`.
 
 ```bash
 npm run build                    # static output in build/, served from the root
@@ -192,19 +193,14 @@ of its domain. To serve it under a sub-path instead, build with `BASE_PATH`:
 BASE_PATH=/north npm run build
 ```
 
-Tests for the server (stdlib `unittest`, also run in CI):
+Tests for the server (stdlib `unittest`):
 
 ```bash
 uv run python -m unittest discover -s server
 ```
 
-CI runs lint, `svelte-check`, the unit suite, the build and the server tests on
-every push to `main` (`.github/workflows/ci.yml`). It does not publish anything —
-deployment is yours.
-
-> **Note:** GitHub Actions is currently locked on this account ("your account is
-> locked due to a billing issue"), so CI cannot run until billing is fixed. The
-> self-hosted server does not depend on it.
+There is no CI and no hosting pipeline. The repository is source; the machine that serves the
+build is the only machine that runs it.
 
 ### Keep it running
 
@@ -233,12 +229,8 @@ The server exposes `/healthz` for exactly this: `curl -fsS localhost:8080/health
 
 ### Relationship to GitHub
 
-The repository is source, not hosting. `gh-pages` has been deleted and no
-workflow publishes anything, so nothing is served from `github.io`. GitHub
-refused programmatic deactivation of the Pages site
-(`422 Deactivating GitHub pages for this repository is not allowed`) — with the
-branch gone it has nothing to serve; switch it off permanently in
-**Settings → Pages** when convenient.
+The repository is source, not hosting. Nothing is published anywhere: no Pages site, no
+workflow, no `github.io` URL. GitHub holds the code; the machine at home holds the app.
 
 ## Privacy model
 

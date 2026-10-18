@@ -1,9 +1,11 @@
 # AGENTS.md — operating rules for the implementing agent
 
-> ## ⚠️ Read [`docs/V2.md`](docs/V2.md) first.
-> It is the **live brief** and it supersedes the v1 outline. The home screen is now a
+> ## ⚠️ Read [`docs/V2.md`](docs/V2.md) first, then [`docs/V2.1.md`](docs/V2.1.md).
+> V2 is the **live brief** and it supersedes the v1 outline. The home screen is now a
 > **categorised dashboard of charts**, not a list of rows; v1's list lives on at `/log`.
-> **The four things to focus on, in order: design, data display, logging ease, data
+> V2.1 is the current milestone: the look of that dashboard (full width, tile sizes by metric
+> weight, semantic colour, a `/preview` page of a finished day) and the hand-import path for
+> Apple Health. **The four things to focus on, in order: design, data display, logging ease, data
 > automation.** Do not spend effort on the old milestone plan in `docs/spec/08-build-plan.md`
 > (M6–M9 are not planned) and do not treat the other `docs/spec/*` files as a mandate for
 > screens — only for **metric values, scoring maths and tokens**, which stay canonical.

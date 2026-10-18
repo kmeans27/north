@@ -1,5 +1,10 @@
 # 06 — Architecture
 
+> **Superseded in one respect (V2):** this file was written when the app was going to be published
+> with GitHub Pages and synced through the GitHub Contents API. Neither is happening. The build
+> output is served by `server/serve.py` on the owner's own machine, and there is no CI. Everything
+> else here — the stack, the storage model, the dependency rules — still holds.
+
 ## 1. Stack and dependencies
 
 | Layer | Choice | Why |
