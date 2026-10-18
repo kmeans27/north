@@ -416,7 +416,7 @@
   {#if sheetMetric && sheetValue}
     <p class="meta">source: {SOURCE_LABEL[sheetMetric.source]}</p>
     <p class="meta">
-      {sheetValue.score === null ? 'no score' : `${Math.round(sheetValue.score)} of 100`}
+      {sheetValue.score === null ? 'no score' : `score ${Math.round(sheetValue.score)} of 100`}
       {#if aboveTarget(sheetMetric, sheetValue.value)}
         · {aboveTarget(sheetMetric, sheetValue.value)}
       {/if}

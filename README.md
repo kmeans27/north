@@ -82,6 +82,8 @@ Week and Trends were tightened before starting M5:
   `Weakest link: …` and rule 3's ends with `(n = 98 days. …)`, so the card heading (rule 1) and
   the sample-size footer (rule 3) are rendered only when the sentence does not already carry
   them. The card copy itself is unchanged.
+- **The auto-cell sheet labels its score.** The sheet showed a bare `80 of 100`; it now reads
+  `score 80 of 100` next to `source: watch`.
 
 ## Deploy
 
