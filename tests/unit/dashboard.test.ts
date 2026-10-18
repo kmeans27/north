@@ -10,6 +10,7 @@ import {
   PANEL_DAYS,
   SPARK_DAYS,
   WEEK_BARS,
+  chartCeiling,
   chartFor,
   dashboard,
   handLogged,
@@ -73,14 +74,20 @@ describe('inlineControl', () => {
     expect(inlineControl(byId('phone_total'))).toBe('bins');
   });
 
-  it('refuses a typed number, a weekly metric and a monthly one', () => {
+  it('refuses a typed daily number and a weekly metric', () => {
     // `number` is typed, not tapped, so the row shows the figure and a chart.
     expect(inlineControl(byId('sleep_hours'))).toBeNull();
     expect(inlineControl(byId('distraction_min'))).toBeNull();
-    expect(inlineControl(byId('savings_rate'))).toBeNull();
     // A weekly counter logs into a day, which would read "sessions today".
     expect(inlineControl(byId('strength_sessions'))).toBeNull();
     expect(inlineControl(byId('daylight_days'))).toBeNull();
+  });
+
+  it('is the only way in for a monthly figure', () => {
+    // `/log` never shows a monthly metric, so the dashboard must take it.
+    expect(inlineControl(byId('savings_rate'))).toBe('number');
+    expect(inlineControl(byId('invested'))).toBe('triState');
+    expect(chartFor(byId('savings_rate'), options([])).kind).toBe('none');
   });
 
   it('counts the nine taps you make by hand', () => {
@@ -144,11 +151,23 @@ describe('chartFor', () => {
     expect(chart.lowerIsBetter).toBe(true);
   });
 
-  it('leaves a hand-logged metric, a monthly one and a signed trend alone', () => {
+  it('leaves a hand-logged metric and a signed trend alone', () => {
     expect(chartFor(byId('protein'), options(days)).kind).toBe('none');
-    expect(chartFor(byId('savings_rate'), options(days)).kind).toBe('none');
     expect(chartFor(byId('weight_trend'), options(days)).kind).toBe('none');
     expect(chartFor(byId('adult'), options(days)).kind).toBe('none');
+    expect(chartFor(byId('weight_trend'), options(days)).ceiling).toBeNull();
+  });
+
+  it('stops the chart scale where the metric stops scoring', () => {
+    // A `range` ceilings at `bad`, so a wild day cannot flatten the rest.
+    expect(chartCeiling(byId('sleep_consistency'))).toBe(90);
+    expect(chartCeiling(byId('distraction_min'))).toBe(240);
+    // A `ramp` or `counter` ceilings at `stretch`: a bar may pass the target.
+    expect(chartFor(byId('sleep_hours'), options(days)).ceiling).toBe(8.5);
+    expect(chartCeiling(byId('steps'))).toBe(10000);
+    expect(chartCeiling(byId('strength_sessions'))).toBe(3);
+    // Protein's `stretch` comes from settings: 2.0 g/kg on 80 kg is 5 ×32 g.
+    expect(chartCeiling(byId('protein'))).toBe(5);
   });
 });
 
@@ -215,6 +234,20 @@ describe('dashboard', () => {
     expect(byPillar('body')?.daily).toBe(true);
   });
 
+  it('scores Capital from the month\u2019s figures, entered on any day of it', () => {
+    const days = dates('2026-10-01', 28).map((date) => perfectDay(date));
+    // Written on the 1st, read on the 18th: one figure for the whole month.
+    days[0] = perfectDay('2026-10-01', { savings_rate: 15, invested: true });
+
+    const capital = dashboard(options(days)).panels.find((panel) => panel.pillar === 'capital');
+    // 15 % on a 0→20 % ramp is 75; invested is a step, so it is 100 or nothing.
+    expect(capital?.score).toBeCloseTo((0.07 * 75 + 0.03 * 100) / 0.1, 5);
+    expect(capital?.metrics.find((row) => row.metric.id === 'savings_rate')?.shown).toBe(15);
+    expect(capital?.metrics.find((row) => row.metric.id === 'invested')?.shown).toBe(true);
+    expect(capital?.daily).toBe(false);
+    expect(capital?.n).toBe(0);
+  });
+
   it('shows a stored value, and falls back to the derived one', () => {
     const steady = dates('2026-09-20', 40).map((date) =>
       day(date, { sleep_hours: 7.5, protein: 3 }, { extras: { sleepStart: '23:00' } })
@@ -226,6 +259,25 @@ describe('dashboard', () => {
     expect(sleep?.shown).toBe(7.5);
     // Never stored: computed from the sleep starts on read.
     expect(regularity?.shown).toBe(0);
+  });
+
+  it('shows a monthly figure for its whole month, whatever day it was written', () => {
+    const days = [
+      day('2026-10-01', { savings_rate: 18, invested: true }),
+      day('2026-10-18', { protein: 4 })
+    ];
+    const rows = (listing: readonly Day[]) =>
+      dashboard(options(listing)).panels.flatMap((panel) => panel.metrics);
+    const find = (listing: readonly Day[], id: MetricId) =>
+      rows(listing).find((row) => row.metric.id === id)?.shown;
+
+    expect(find(days, 'savings_rate')).toBe(18);
+    expect(find(days, 'invested')).toBe(true);
+
+    // A new month has no figure until it is entered: never carried over.
+    const november = [...days, day('2026-11-05', {})];
+    expect(find(november, 'savings_rate')).toBeNull();
+    expect(find(november, 'invested')).toBeNull();
   });
 
   it('counts what is left to log today', () => {

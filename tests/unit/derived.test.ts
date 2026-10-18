@@ -7,6 +7,7 @@ import {
   hitRate,
   logStreak,
   minutesOfDay,
+  monthlyValues,
   sleepConsistency,
   standardDeviation,
   strengthSessions,
@@ -158,6 +159,34 @@ describe('weekly metric values', () => {
     const values = weeklyValues({ week, history });
     expect(typeof values.weight_trend).toBe('number');
     expect(values.weight_trend!).toBeLessThan(0);
+  });
+});
+
+describe('monthly metric values (03-scoring.md §3)', () => {
+  it('reads the month the history ends in, and nothing outside it', () => {
+    const days = [
+      day('2026-09-01', { savings_rate: 16, invested: true }),
+      day('2026-10-01', { savings_rate: 21 }),
+      day('2026-10-18', { protein: 4 })
+    ];
+    expect(monthlyValues(days)).toEqual({ savings_rate: 21 });
+  });
+
+  it('takes the newest value inside the month, wherever it was written', () => {
+    const days = [
+      day('2026-10-01', { savings_rate: 21 }),
+      day('2026-10-18', { savings_rate: 27, invested: false })
+    ];
+    expect(monthlyValues(days)).toEqual({ savings_rate: 27, invested: false });
+  });
+
+  it('leaves a new month empty rather than carrying last month over', () => {
+    const days = [day('2026-10-01', { savings_rate: 21 }), day('2026-11-02', {})];
+    expect(monthlyValues(days)).toEqual({});
+  });
+
+  it('has nothing to say about an empty history', () => {
+    expect(monthlyValues([])).toEqual({});
   });
 });
 

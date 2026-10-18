@@ -33,6 +33,7 @@
   import Bars from '$lib/ui/Bars.svelte';
   import Bins from '$lib/ui/Bins.svelte';
   import ChoiceRow from '$lib/ui/ChoiceRow.svelte';
+  import NumberField from '$lib/ui/NumberField.svelte';
   import Segmented from '$lib/ui/Segmented.svelte';
   import Sparkline from '$lib/ui/Sparkline.svelte';
   import TriState from '$lib/ui/TriState.svelte';
@@ -197,7 +198,11 @@
       <AreaChart points={hero.sparkline} label="30-day score" />
       <div class="chart-foot">
         <span class="meta">30 days</span>
-        {#if bandWord}<span class="meta">{bandWord}</span>{/if}
+        {#if bandWord}
+          <span class="meta">{bandWord}</span>
+        {:else}
+          <span class="meta" data-testid="hero-note">not enough logged yet for a score</span>
+        {/if}
       </div>
     </div>
 
@@ -205,9 +210,14 @@
   </section>
 
   <p class="status-line">
-    <span class="meta">Logged {hero.logged} of {hero.total} today.</span>
-    {#if !readOnly && model.open.length > 0}
-      <span class="meta to-log" data-testid="to-log">· {model.open.length} to log</span>
+    {#if readOnly}
+      <span class="meta">A past day — cells are off, the figures are still here.</span>
+    {:else if model.open.length === 0}
+      <span class="meta" data-testid="to-log">All {model.total} taps logged today.</span>
+    {:else}
+      <span class="meta to-log" data-testid="to-log"
+        >{model.open.length} of {model.total} taps left today.</span
+      >
     {/if}
   </p>
 
@@ -268,6 +278,12 @@
                       value={row.value.value}
                       onpick={(value) => write(row.metric, value)}
                     />
+                  {:else if row.control === 'number'}
+                    <NumberField
+                      metric={row.metric}
+                      value={typeof row.shown === 'number' ? row.shown : null}
+                      onchange={(value) => write(row.metric, value)}
+                    />
                   {/if}
                 </div>
               {:else}
@@ -292,7 +308,7 @@
 
         {#if panel.daily}
           <p class="panel-foot meta">
-            {panel.n} of 28 days scored{panel.score === null ? ' · no figure yet' : ''}
+            {panel.n} of 28 days with enough logged{panel.score === null ? ' · no figure yet' : ''}
           </p>
         {/if}
       </section>
@@ -513,8 +529,10 @@
     color: var(--ink);
   }
 
+  /* A missing value is a real thing to find, not decoration: the faint token is
+     too quiet to read at this size (and fails contrast on both themes). */
   .prow-value.muted {
-    color: var(--ink-faint);
+    color: var(--ink-muted);
   }
 
   .prow-control {

@@ -16,7 +16,7 @@ import {
   type PeriodValues
 } from './metrics/aggregate';
 import { addDays, startOfWeek } from './metrics/dates';
-import { weeklyValues, sleepConsistency } from './metrics/derived';
+import { monthlyValues, sleepConsistency, weeklyValues } from './metrics/derived';
 import { PILLARS, PILLAR_LABEL } from './metrics/registry';
 import type { Day, MetricId, Pillar, ResolvedMetric, Settings, Value } from './metrics/types';
 import { controlFor, rowValue, type RowControl, type RowValue } from './today';
@@ -37,6 +37,12 @@ export interface ChartSpec {
   points: (number | null)[];
   /** The target, drawn as a hairline the bars want to reach. */
   target: number | null;
+  /**
+   * The value at which the metric scores zero: a `range`'s `bad`, a `ramp` or
+   * `counter`'s `stretch`. The chart never zooms out past it, so one wild day
+   * cannot flatten the other thirteen.
+   */
+  ceiling: number | null;
   /** `true` when the metric scores a *low* value as good, so the bars mirror. */
   lowerIsBetter: boolean;
   /** The metric's unit and precision, so a chart can speak for itself. */
@@ -92,34 +98,62 @@ export interface DashboardModel {
 
 /* ─── Which metrics carry a chart ─────────────────────────────────────────── */
 
-/** The widgets a row logs in one tap. `number` is typed, not tapped, so it is out. */
-const CELL_CONTROLS: readonly RowControl[] = ['triState', 'choice', 'segmented', 'bins'];
-
 /**
  * The inline control a panel row offers, or `null` for a value-and-chart row.
- * Only a *daily* metric: a weekly counter logs into a day, which would read as
- * "sessions today" under a label that says `/wk`.
+ *
+ * - A **daily** test with cells is one tap, so the control *is* its readout.
+ * - A **daily** number is typed, not tapped: it shows the figure and a chart.
+ * - A **weekly** metric logs into a day, which would read as "sessions today"
+ *   under a label that says `/wk`: it shows the figure and a chart.
+ * - A **monthly** metric has no chart and no other way in — `/log` never shows
+ *   it — so the dashboard is where the month's figure is entered.
  */
 export function inlineControl(metric: ResolvedMetric): RowControl | null {
-  if (!metric.visible || metric.cadence !== 'daily') return null;
+  if (!metric.visible) return null;
   const control = controlFor(metric.widget);
-  return control !== null && CELL_CONTROLS.includes(control) ? control : null;
+  if (control === null) return null;
+
+  if (metric.cadence === 'daily') return control === 'number' ? null : control;
+  if (metric.cadence === 'monthly') return control;
+  return null;
 }
 
-/** The metrics one logs by hand on any given day — the nine taps. */
+/** The metric rows one taps by hand on any given day — the nine. */
 export function handLogged(metrics: readonly ResolvedMetric[]): ResolvedMetric[] {
-  return metrics.filter((metric) => metric.source === 'manual' && inlineControl(metric) !== null);
+  return metrics.filter(
+    (metric) =>
+      metric.cadence === 'daily' &&
+      metric.source === 'manual' &&
+      inlineControl(metric) !== null
+  );
 }
 
 const NO_CHART: ChartSpec = {
   kind: 'none',
   points: [],
   target: null,
+  ceiling: null,
   lowerIsBetter: false,
   unit: '',
   decimals: 0,
   caption: ''
 };
+
+/**
+ * The value at which the metric scores nothing (`types.ts` — `bad` for a
+ * `range`, `stretch` for a `ramp` or `counter`). A chart scales itself to the
+ * window but stops here, so the y-axis stays inside the metric's own range and
+ * a single outlier day cannot flatten the rest. `stretch` is display framing by
+ * design, which is exactly what a bar chart is.
+ */
+export function chartCeiling(metric: ResolvedMetric): number | null {
+  const spec = metric.score;
+  if (spec.curve === 'range') return finite(spec.bad);
+  if (spec.curve === 'ramp' || spec.curve === 'counter') {
+    return finite(spec.stretch) ?? finite(spec.target);
+  }
+  return finite(spec.target);
+}
 
 /**
  * Whether the metric scores a low value as good. Read off the curve rather than
@@ -189,7 +223,13 @@ export function chartFor(metric: ResolvedMetric, options: DashboardOptions): Cha
   /* A target of zero is the baseline itself: a hairline there says nothing. */
   const raw = metric.score.target;
   const target = Number.isFinite(raw) && raw !== 0 ? raw : null;
-  const base = { target, lowerIsBetter: lower, unit: metric.unit, decimals: metric.decimals ?? 0 };
+  const base = {
+    target,
+    ceiling: chartCeiling(metric),
+    lowerIsBetter: lower,
+    unit: metric.unit,
+    decimals: metric.decimals ?? 0
+  };
 
   if (metric.cadence === 'weekly') {
     return {
@@ -218,8 +258,9 @@ function trust(days: readonly Day[], metrics: readonly ResolvedMetric[]): number
 
 /**
  * What a row prints. The stored value wins; a metric that is only ever computed
- * on read falls back to its own derivation, and a weekly or monthly value to the
- * period figure. Never invented: a day with nothing stays `null`.
+ * on read falls back to its own derivation, a weekly metric to this week's
+ * figure and a monthly one to this month's. Never invented: a period with
+ * nothing stays `null`.
  */
 export function shownValue(metric: ResolvedMetric, options: DashboardOptions): Value {
   if (options.day) {
@@ -229,8 +270,19 @@ export function shownValue(metric: ResolvedMetric, options: DashboardOptions): V
   if (metric.source === 'derived' && metric.cadence === 'daily') {
     return derivedDaily(metric.id, options.days).at(-1) ?? null;
   }
+  /* A monthly metric is one figure for the whole month, whatever day it was
+     written on (`aggregate.ts` reads the period, not the day). */
+  if (metric.cadence === 'monthly') return periods(options)[metric.id] ?? null;
   const period = (options.weekly ?? {})[metric.id];
   return typeof period === 'number' || typeof period === 'boolean' ? period : null;
+}
+
+/**
+ * The period values the aggregate functions read: this week's weekly metrics,
+ * plus this month's monthly ones (`pillarScores` reads both from one map).
+ */
+function periods(options: DashboardOptions): PeriodValues {
+  return { ...(options.weekly ?? {}), ...monthlyValues(options.days) };
 }
 
 /** One pillar's panel, for the viewed day. */
@@ -242,7 +294,7 @@ export function panelFor(pillar: Pillar, options: DashboardOptions): PillarPanel
     .slice(-SPARK_DAYS)
     .map((day) => pillarDayScore(day, pillar, options.metrics, options.settings));
 
-  const score = pillarScores(window, options.metrics, options.settings, options.weekly ?? {})[pillar];
+  const score = pillarScores(window, options.metrics, options.settings, periods(options))[pillar];
 
   return {
     pillar,
@@ -253,16 +305,13 @@ export function panelFor(pillar: Pillar, options: DashboardOptions): PillarPanel
        figure to be confident about. */
     daily: members.some((metric) => metric.cadence === 'daily'),
     n: trust(window, members),
-    metrics: members.map((metric) => {
-      const control = inlineControl(metric);
-      return {
-        metric,
-        value: rowValue(options.day, metric, options.settings),
-        shown: control === null ? shownValue(metric, options) : rowValue(options.day, metric, options.settings).value,
-        control,
-        chart: chartFor(metric, options)
-      };
-    })
+    metrics: members.map((metric) => ({
+      metric,
+      value: rowValue(options.day, metric, options.settings),
+      shown: shownValue(metric, options),
+      control: inlineControl(metric),
+      chart: chartFor(metric, options)
+    }))
   };
 }
 
@@ -270,7 +319,7 @@ export function panelFor(pillar: Pillar, options: DashboardOptions): PillarPanel
 export function dashboard(options: DashboardOptions): DashboardModel {
   const panels = PILLARS.map((pillar) => panelFor(pillar, options));
 
-  const manual = handLogged(options.metrics).filter((metric) => metric.cadence === 'daily');
+  const manual = handLogged(options.metrics);
   const view: Day = options.day ?? { date: '', tz: '', values: {} };
   const done = manual.filter((metric) => valueOf(view, metric.id) !== null);
 
@@ -292,7 +341,7 @@ export function panelOrder(options: DashboardOptions): Pillar[] {
     options.days.slice(-PANEL_WINDOW),
     options.metrics,
     options.settings,
-    options.weekly ?? {}
+    periods(options)
   );
 
   /* Compared rounded, so the order matches the figures on the screen: two

@@ -3,7 +3,7 @@
  * argument. No Svelte, no browser API.
  */
 
-import { addDays, diffDays, weekKey } from './dates';
+import { addDays, diffDays, monthKey, weekKey } from './dates';
 import { COVERAGE_OK, coverage, valueOf, type PeriodValues } from './aggregate';
 import { scoreMetric } from './score';
 import type { Day, MetricId, ResolvedMetric, Settings, Value } from './types';
@@ -218,6 +218,37 @@ export function weeklyValues({ week, history }: WeeklyValueOptions): PeriodValue
   if (lastDate && !weightStale(series, lastDate)) {
     const slope = weightSlopePctPerWeek(weightEma(series));
     if (slope !== null) out.weight_trend = slope;
+  }
+
+  return out;
+}
+
+/** The monthly metrics (02-metrics.md §5): one figure for a whole month. */
+export const MONTHLY_IDS: readonly MetricId[] = ['savings_rate', 'invested'];
+
+/**
+ * The monthly metrics' values for the month the history ends in. A monthly
+ * metric is entered on whatever day of the month it happens to be
+ * (03-scoring.md §3), so the newest value inside the month wins — and a new
+ * month has no figure until one is entered, never last month's.
+ */
+export function monthlyValues(days: readonly Day[]): PeriodValues {
+  const out: PeriodValues = {};
+  const last = days[days.length - 1]?.date;
+  if (!last) return out;
+  const key = monthKey(last);
+
+  /* Days are oldest first, so the first day outside the month ends the search. */
+  for (let index = days.length - 1; index >= 0; index--) {
+    const day = days[index];
+    if (!day || monthKey(day.date) !== key) break;
+    for (const id of MONTHLY_IDS) {
+      if (out[id] !== undefined) continue;
+      const value = valueOf(day, id);
+      if (typeof value === 'boolean' || (typeof value === 'number' && Number.isFinite(value))) {
+        out[id] = value;
+      }
+    }
   }
 
   return out;

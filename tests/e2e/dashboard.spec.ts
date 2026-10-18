@@ -71,17 +71,23 @@ test('3. the nine taps happen on the dashboard itself', async ({ page }) => {
   await openDashboard(page);
 
   // Nothing logged today: nine taps are waiting, and they are all on this page.
-  await expect(page.getByTestId('to-log')).toContainText('9 to log');
+  await expect(page.getByTestId('to-log')).toContainText('9 of 9 taps left today');
 
   await cell(page, 'protein', '4').click();
 
   await expect(page.locator('.toast')).toContainText('Protein');
-  await expect(page.getByTestId('to-log')).toContainText('8 to log');
+  await expect(page.getByTestId('to-log')).toContainText('8 of 9 taps left today');
 
   // Logged in place: the URL never changed and nothing navigated away.
   await expect(page).toHaveURL(/\/$/);
   await expect(page.locator('[data-panel]')).toHaveCount(4);
   await expect(cell(page, 'protein', '4')).toHaveAttribute('aria-checked', 'true');
+
+  // The month's figure is entered here too — `/log` never shows it — and it is
+  // not one of the nine daily taps.
+  await cell(page, 'invested', 'yes').click();
+  await expect(cell(page, 'invested', 'yes')).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByTestId('to-log')).toContainText('8 of 9 taps left today');
 });
 
 test('4. a missing day is a gap in the chart, never a zero', async ({ page }) => {

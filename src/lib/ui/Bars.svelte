@@ -19,14 +19,15 @@
 
   /* The bars are the raw values scaled to the window's own maximum, so the
      shape is the day-to-day variation rather than "was it above the line". The
-     target stays a hairline to read against. With no target the window is the
-     scale either way. */
+     target stays a hairline to read against, and the scale never runs past the
+     value that scores zero: one wild day must not flatten the other thirteen. */
   const scale = $derived.by(() => {
     const best = chart.points.reduce<number>(
       (top, point) => (point === null ? top : Math.max(top, point)),
       chart.target ?? 0
     );
-    return Math.max(best, 1);
+    const ceiling = chart.ceiling === null ? Infinity : Math.max(chart.ceiling, 1);
+    return Math.max(1, Math.min(Math.max(best, 1), ceiling));
   });
 
   const bars = $derived.by(() => {
