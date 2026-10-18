@@ -154,6 +154,40 @@ deployment is yours.
 > locked due to a billing issue"), so CI cannot run until billing is fixed. The
 > self-hosted server does not depend on it.
 
+### Keep it running
+
+A user service is enough for a machine that is always on:
+
+```ini
+# ~/.config/systemd/user/north.service
+[Unit]
+Description=north
+
+[Service]
+WorkingDirectory=%h/north
+ExecStart=/usr/bin/env uv run server/serve.py --host 127.0.0.1 --port 8080
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
+```
+
+```bash
+systemctl --user enable --now north
+systemctl --user status north
+```
+
+The server exposes `/healthz` for exactly this: `curl -fsS localhost:8080/healthz`.
+
+### Relationship to GitHub
+
+The repository is source, not hosting. `gh-pages` has been deleted and no
+workflow publishes anything, so nothing is served from `github.io`. GitHub
+refused programmatic deactivation of the Pages site
+(`422 Deactivating GitHub pages for this repository is not allowed`) — with the
+branch gone it has nothing to serve; switch it off permanently in
+**Settings → Pages** when convenient.
+
 ## Privacy model
 
 Everything is stored in this browser's IndexedDB. Nothing leaves the device unless you turn on
