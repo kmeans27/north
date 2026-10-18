@@ -97,9 +97,12 @@ src/routes/          +layout.svelte (shell, nav, theme, keyboard)
                      log/            v1's list (the full logger; must keep working)
                      week/  trends/  settings/
 src/lib/metrics/     types, registry (canonical values), score, aggregate, dates, resolve
+src/lib/dashboard.ts the v2 home screen's shape as data — panels, charts, order (pure)
+src/lib/today.ts     v1's log screen's shape as data (pure)
 src/lib/store/       IndexedDB, days, settings, export, demo seed, session.svelte.ts (all state)
 src/lib/ui/          the widget library: CellGroup/ChoiceRow/TriState/Bins/NumberField,
-                     Row, ScoreHeader, Sparkline, HeatGrid, MetricChart, Sheet, Toast
+                     Row, ScoreHeader, Sparkline, Bars, AreaChart, HeatGrid, MetricChart,
+                     Sheet, Toast
 src/styles/          tokens.css (the only place a value may be hardcoded), base.css
 server/              serve.py (stdlib static server + ingest) and its tests
 tests/unit/          pure logic, Vitest.  tests/e2e/  user-visible behaviour, Playwright

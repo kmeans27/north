@@ -8,8 +8,9 @@ separate private repo; this repo contains code and demo data only.
 > The home screen reads at a glance; the log is for filling the gaps.
 
 **Status: v2.** v1 was a flat list of rows — a form, not a dashboard. v2 replaces the home
-screen with a categorised dashboard of charts, keeps the old list at `/log`, and adds an Apple
-Health pipeline. **[`docs/V2.md`](docs/V2.md) is the live brief; read it first.**
+screen with a categorised dashboard of charts, keeps the old list at `/log`, and puts the nine
+daily taps on the dashboard itself. The Apple Health pipeline is designed and is next.
+**[`docs/V2.md`](docs/V2.md) is the live brief; read it first.**
 
 **Why north exists.** Habit trackers track *habits*; north tracks the small,
 important parts of life that decide how well you perform — sleep, food, focus,
@@ -48,7 +49,7 @@ It is feature-complete. What is deliberately **not** built, and will not be:
 | Not built | Why |
 |---|---|
 | Sync, accounts, any server-side data | The app is local-first. Your data stays in the browser; changing device is a JSON export/import. |
-| Automation (Apple Health, Screen Time collectors) | A whole ingest pipeline for two auto-metrics. The auto strip already has a hand-entry path. |
+| Automation (Apple Health, Screen Time collectors) | Not built yet. The pipeline is designed in [`docs/V2.md`](docs/V2.md) §5; every auto metric stays hand-enterable until it lands. |
 | Onboarding wizard, `gentle/standard/strict` presets | Nine steps to set nine defaults. Settings has the values that matter, and shows what they derive. |
 | Per-metric target editing | Every target lives in one registry plus an override layer; the Settings screen covers the ones that actually move. |
 | PWA, install prompts, print stylesheet | A second lifetime of caching bugs for a page you open once a day. |
@@ -68,6 +69,30 @@ to the daily loop, or a moving part that can break it.
 | M4 | Week, Trends | **done** |
 | M5 | Settings and data export (cut down, see below) | **done** |
 | M6–M9 | Sync, automation, PWA, release | **not planned** (see [Scope](#scope)) |
+| V2 | Dashboard home + inline logging | **done** — see below |
+
+### V2 — the dashboard (see [`docs/V2.md`](docs/V2.md))
+
+The home screen is now a dashboard, not a list. `/` shows the day's composite over 30 days, then
+one panel per part of life — Attention, Mind, Body, Capital, weakest figure first — each with its
+pillar score, its 30-day shape, every metric of that pillar, and a chart where the shape carries
+the meaning. The nine things you log by hand are one tap each, on the dashboard, in place.
+
+- **v1 is frozen, not deleted.** The old list moved to `/log` and its behaviour, keyboard model
+  and tests are unchanged; `[` and `]` browse days on both screens. The shell's four links are
+  `log · week · trends · set`, and the wordmark is home.
+- **Charts are hand-written SVG on tokens** (`src/lib/ui/Bars.svelte`, `AreaChart.svelte`): 14 days
+  of bars with the target as a hairline, or the hero's 30-day area on a fixed 0–100 scale. No
+  chart library, no gradient literals, no new dependency.
+- **A gap stays a gap.** Every series is `(number | null)[]`; a missing day draws no bar.
+- **The maths did not move.** `src/lib/dashboard.ts` is pure and unit-tested; every figure in it
+  comes from `aggregate.ts` or the registry.
+
+Last gate (V2): `npm run check` 0 errors / 0 warnings · 380 unit tests green · lint clean ·
+build clean · 99 e2e pass + 1 skipped · 12 server tests green.
+Budget, first load (the gzipped responses the page actually requests, served by `serve.py`):
+**65.9 KB JS + CSS on the dashboard, 68.2 KB on the log** (limit 90 KB) · **font 30.0 KB**
+(limit 60 KB).
 
 **M5 was cut to two things**, because those were the only parts that were actually missing:
 the handful of values every score is computed from (`bodyweightKg` was stuck at the 80 kg
@@ -76,7 +101,7 @@ out (`export.ts` was written and tested in M1 but nothing in the UI called it). 
 wizard, the presets and the per-metric target editor are not built, and that is a deliberate
 departure from `docs/spec/08-build-plan.md` §M5 — reported, and recorded in [`docs/spec/vision-v1.md`](docs/spec/vision-v1.md) §5.
 
-Last gate (M5): `npm run check` 0 errors / 0 warnings · 364 unit tests green · lint clean ·
+Gate at M5: `npm run check` 0 errors / 0 warnings · 364 unit tests green · lint clean ·
 build clean · 79 e2e pass + 1 skipped · 12 server tests green.
 Budgeted at M4: **JS + CSS gzipped 76.8 KB** (limit 90 KB) · **font 30.8 KB** (limit 60 KB).
 Served by `server/serve.py` (see [Deploy](#deploy--self-hosted)); no hosted URL until you point a
